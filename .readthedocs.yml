@@ -1,0 +1,23 @@
+# Read the Docs configuration file
+version: 2
+
+# Build documentation in the docs/ directory with Sphinx
+sphinx:
+  configuration: docs/conf.py
+  fail_on_warning: true
+
+# Python configuration
+python:
+  version: "3.8"
+  install:
+    - requirements: docs/requirements.txt
+    - method: pip
+      path: .
+      extra_requirements:
+        - docs
+
+# Optionally set the default version to serve (defaults to "latest")
+# default_version: latest
+
+# Optionally set the default language of your project docs.
+language: en

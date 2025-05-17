@@ -1,0 +1,23 @@
+[flake8]
+# Maximum line length
+max-line-length = 144
+
+# Exclude directories
+exclude =
+    .git,
+    __pycache__,
+    .pytest_cache,
+    .venv,
+    venv,
+    env,
+    build,
+    dist
+
+# Per-file-ignores
+# Format: filename: error_code, error_code
+per-file-ignores =
+    # Ignore E402 (module level import not at top of file) in __init__.py files
+    __init__.py: F401
+
+    # Ignore line length in tests (you might want to adjust this)
+    tests/*: E501
