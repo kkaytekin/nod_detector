@@ -1,10 +1,40 @@
+[project]
+name = "nod-detector"
+version = "0.1.0"
+description = "A system for detecting nodding behavior in videos"
+readme = "README.md"
+requires-python = ">=3.8"
+authors = [
+    {name = "Kagan Kucukaytekin", email = "kkaytekin@gmail.com"},
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Image Processing",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "numpy>=1.20.0",
+    "opencv-python>=4.5.1.48",
+    "mediapipe>=0.8.9.1",
+]
+
+[project.urls]
+homepage = "https://github.com/kkaytekin/nod_detector"
+"bug-tracker" = "https://github.com/kkaytekin/nod_detector/issues"
+documentation = "https://nod-detector.readthedocs.io"
+
 [build-system]
 requires = ["setuptools>=42", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.black]
 line-length = 88
-target-version = ['py38', 'py39', 'py310', 'py311']
+target-version = ['py312']
 include = '\.pyi?$'
 
 [tool.isort]
@@ -17,7 +47,7 @@ ensure_newline_before_comments = true
 line_length = 88
 
 [tool.mypy]
-python_version = "3.8"
+python_version = "3.12"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true

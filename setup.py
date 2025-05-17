@@ -11,9 +11,7 @@ with open(os.path.join(here, "README.md"), encoding="utf-8") as f:
 
 # Get the version from the package
 about = {}
-with open(
-    os.path.join(here, "src", "nod_detector", "__version__.py"), encoding="utf-8"
-) as f:
+with open(os.path.join(here, "src", "nod_detector", "__version__.py"), encoding="utf-8") as f:
     exec(f.read(), about)
 
 

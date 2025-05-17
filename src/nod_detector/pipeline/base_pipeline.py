@@ -1,4 +1,5 @@
 """Base pipeline module for the nod detector."""
+
 from __future__ import annotations
 
 import logging

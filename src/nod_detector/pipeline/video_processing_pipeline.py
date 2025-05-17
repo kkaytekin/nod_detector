@@ -1,6 +1,7 @@
 """
 Video processing pipeline for the nod detection system.
 """
+
 from __future__ import annotations
 
 import logging
@@ -124,7 +125,7 @@ class VideoProcessingPipeline(BasePipeline["ProcessingResults"]):
                     break
 
                 # Process the frame
-                frame_result = self._process_frame(frame, self.frame_count)
+                frame_result = self._process_frame(frame.astype(np.uint8), self.frame_count)
                 results["frame_results"].append(frame_result)
 
                 # Visualize results (to be implemented)
@@ -140,9 +141,7 @@ class VideoProcessingPipeline(BasePipeline["ProcessingResults"]):
         finally:
             cap.release()
 
-    def _process_frame(
-        self, frame: npt.NDArray[np.uint8], frame_number: int
-    ) -> FrameResult:
+    def _process_frame(self, frame: npt.NDArray[np.uint8], frame_number: int) -> FrameResult:
         """
         Process a single frame.
 
@@ -161,9 +160,7 @@ class VideoProcessingPipeline(BasePipeline["ProcessingResults"]):
             "nod_detected": False,
         }
 
-    def _visualize(
-        self, frame: npt.NDArray[np.uint8], frame_result: FrameResult
-    ) -> None:
+    def _visualize(self, frame: npt.NDArray[np.uint8], frame_result: FrameResult) -> None:
         """
         Visualize the processing results on the frame.
 

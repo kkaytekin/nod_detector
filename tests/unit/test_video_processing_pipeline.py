@@ -2,10 +2,8 @@
 Unit tests for the VideoProcessingPipeline class.
 """
 
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import cv2
 import numpy as np
 import pytest
 
