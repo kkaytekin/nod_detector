@@ -2,11 +2,14 @@
 
 A Python package for detecting nodding behavior in videos using MediaPipe. This tool analyzes head movements and identifies nodding patterns by tracking 3D face and pose landmarks in video files.
 
+![Nod Detector](media/cover_image.png)
+
 ## 🚀 Installation
 
 ### Prerequisites
 - Python 3.8 or higher
 - MediaPipe (automatically installed via requirements.txt)
+- Rerun (automatically installed via requirements.txt)
 
 ### Setup
 ```bash

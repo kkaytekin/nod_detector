@@ -29,16 +29,28 @@ def test_process_sample_video(sample_video_path, tmp_path):
     # Process the video with visualization disabled
     results = pipeline.process(sample_video_path, visualize=False)
 
-    # Basic assertions about the results
+    # Basic assertions about the results structure
+    assert isinstance(results, dict)
     assert "video_info" in results
     assert "frame_results" in results
     assert "detections" in results
 
-    # Verify video info was extracted correctly
-    assert results["video_info"]["path"] == sample_video_path
-    assert results["video_info"]["fps"] > 0
-    assert results["video_info"]["frame_width"] > 0
-    assert results["video_info"]["frame_height"] > 0
+    # Verify video info
+    video_info = results["video_info"]
+    assert video_info["path"] == sample_video_path
+    assert video_info["fps"] > 0
+    assert video_info["frame_width"] > 0
+    assert video_info["frame_height"] > 0
+    assert video_info["total_frames"] >= 0
+
+    # Verify frame results
+    assert isinstance(results["frame_results"], list)
+    if results["frame_results"]:
+        frame_result = results["frame_results"][0]
+        assert "head_pose" in frame_result
+        assert "pose_landmarks" in frame_result
+        assert "face_landmarks" in frame_result
+        assert "timestamp" in frame_result
 
     # Verify frame results structure is correct
     # Note: We don't enforce a specific number of frames to be processed

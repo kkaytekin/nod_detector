@@ -128,8 +128,25 @@ class MediaPipeDetector:
         if frame.ndim != 3 or frame.shape[2] != 3:
             raise ValueError("Input frame must be a 3-channel BGR image")
 
+        # Check for empty frame
+        if frame.size == 0 or 0 in frame.shape:
+            logger.warning("Received empty frame")
+            return {"head_pose": None, "pose_landmarks": None, "face_landmarks": None}, frame
+
+        # Log frame info for debugging
+        try:
+            logger.debug(f"Processing frame - Shape: {frame.shape}, Type: {frame.dtype}, Range: {frame.min()}-{frame.max()}")
+        except ValueError as e:
+            logger.warning(f"Could not get frame stats: {e}")
+            return {"head_pose": None, "pose_landmarks": None, "face_landmarks": None}, frame
+
         # Convert BGR to RGB
         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+        # Check if the frame is valid
+        if rgb_frame.size == 0:
+            logger.error("Empty frame after BGR to RGB conversion")
+            return {"error": "Empty frame"}, frame
 
         # Initialize results dictionary with proper types
         results: Dict[str, Any] = {
@@ -146,23 +163,45 @@ class MediaPipeDetector:
         annotated_frame = frame.copy()
 
         try:
+            # Process face mesh first to get face landmarks
+            logger.debug("Processing face mesh...")
+            try:
+                face_results = self.face_mesh.process(rgb_frame)
+                logger.debug(f"Face mesh results: {face_results}")
+                if face_results.multi_face_landmarks:
+                    logger.debug(f"Found {len(face_results.multi_face_landmarks)} face(s)")
+                    logger.debug(f"First face has {len(face_results.multi_face_landmarks[0].landmark)} landmarks")
+                else:
+                    logger.debug("No faces detected in the frame")
+            except Exception as e:
+                logger.error(f"Error in face mesh processing: {str(e)}", exc_info=True)
+                face_results = None
+            face_landmarks_result = None
+
+            if face_results.multi_face_landmarks:
+                logger.debug(f"Found {len(face_results.multi_face_landmarks)} face(s) in the frame")
+                if face_results.multi_face_landmarks[0].landmark:
+                    logger.debug(f"First face has {len(face_results.multi_face_landmarks[0].landmark)} landmarks")
+                    # Just take the first face for now
+                    face_landmarks = face_results.multi_face_landmarks[0]
+                    face_landmarks_result = self._extract_landmarks(face_landmarks.landmark)
+                    results["face_landmarks"] = face_landmarks_result
+
+                    # Calculate head pose using face landmarks
+                    logger.debug("Calculating head pose...")
+                    head_pose_result = self._calculate_head_pose(face_landmarks.landmark)
+                    results["head_pose"] = head_pose_result
+                    logger.debug(f"Head pose result: {head_pose_result}")
+                else:
+                    logger.warning("First face has no landmarks")
+            else:
+                logger.warning("No faces detected in the frame")
+
             # Process pose
             pose_results = self.pose.process(rgb_frame)
             if pose_results.pose_landmarks and pose_results.pose_landmarks.landmark:
                 pose_landmarks_result = self._extract_landmarks(pose_results.pose_landmarks.landmark)
                 results["pose_landmarks"] = pose_landmarks_result
-
-                # Calculate head pose if we have face landmarks
-                head_pose_result = self._calculate_head_pose(pose_results.pose_landmarks.landmark)
-                results["head_pose"] = head_pose_result
-
-            # Process face mesh
-            face_results = self.face_mesh.process(rgb_frame)
-            if face_results.multi_face_landmarks and face_results.multi_face_landmarks[0].landmark:
-                # Just take the first face for now
-                face_landmarks = face_results.multi_face_landmarks[0]
-                face_landmarks_result = self._extract_landmarks(face_landmarks.landmark)
-                results["face_landmarks"] = face_landmarks_result
 
             # Annotate frame
             if pose_results or face_results:
@@ -194,66 +233,178 @@ class MediaPipeDetector:
         }
 
     def _calculate_head_pose(self, landmarks: Any) -> Dict[str, float]:
-        """Calculate head pose angles from facial landmarks.
+        """Calculate head pose (pitch, yaw, roll) from facial landmarks.
 
         Args:
-            landmarks: List of mediapipe face landmarks
+            landmarks: MediaPipe face landmarks.
 
         Returns:
-            Dictionary containing pitch, yaw, and roll angles in radians
+            Dictionary containing pitch, yaw, and roll angles in degrees.
         """
         # Initialize results with default values
         results = {"pitch": 0.0, "yaw": 0.0, "roll": 0.0}
+        logger = logging.getLogger(__name__)  # Get module-level logger
+        logger.setLevel(logging.DEBUG)  # Ensure debug level is set
+
+        # Debug: Check if landmarks are valid
+        if not landmarks or not hasattr(landmarks, "__iter__") or len(landmarks) == 0:
+            logger.error("No landmarks provided for head pose estimation")
+            return results
+
         try:
+            logger.debug("\n" + "=" * 80)
+            logger.debug("=== Starting head pose calculation ===")
+            logger.debug(f"Type of landmarks: {type(landmarks)}")
+            logger.debug(f"Landmarks length: {len(landmarks) if hasattr(landmarks, '__len__') else 'N/A'}")
+
+            # Log basic landmark info
+            logger.info(f"Total landmarks received: {len(landmarks)}")
+
+            # Debug: Log first few landmarks with more details
+            logger.debug("First 5 landmarks (index, has_x, has_y, has_z, visibility):")
+            for i, lm in enumerate(landmarks[:5]):
+                logger.debug(
+                    f"  {i}: has_x={hasattr(lm, 'x')}, has_y={hasattr(lm, 'y')}, "
+                    f"has_z={hasattr(lm, 'z')}, vis={getattr(lm, 'visibility', 1.0)}"
+                )
+
             # Define indices for facial landmarks (MediaPipe Face Mesh)
-            # Nose tip, left eye, right eye, left mouth, right mouth
-            landmark_indices = [1, 33, 263, 61, 291]
+            # Nose tip, chin, left eye left corner, right eye right corner, left mouth corner, right mouth corner
+            landmark_indices = [1, 199, 33, 263, 61, 291]
+            logger.info(f"Using landmark indices: {landmark_indices}")
 
-            # Get 3D coordinates of relevant landmarks
-            points_3d = [
-                [float(landmarks[idx].x), float(landmarks[idx].y), float(getattr(landmarks[idx], "z", 0))]
-                for idx in landmark_indices
-                if idx < len(landmarks)
-            ]
+            # Get valid landmarks (check if index exists and has coordinates)
+            valid_landmarks = []
+            valid_indices = []
 
-            if len(points_3d) < 3:
-                logger.warning("Not enough landmarks for head pose estimation")
+            for idx in landmark_indices:
+                if idx < len(landmarks):
+                    lm = landmarks[idx]
+                    if hasattr(lm, "x") and hasattr(lm, "y"):
+                        # Don't check visibility for now, just check if coordinates exist
+                        valid_landmarks.append(lm)
+                        valid_indices.append(idx)
+                        logger.debug(f"Valid landmark {idx}: x={lm.x:.4f}, y={lm.y:.4f}, z={getattr(lm, 'z', 0.0):.4f}")
+                    else:
+                        logger.warning(f"Landmark {idx} is missing x or y coordinate")
+                else:
+                    logger.warning(f"Landmark index {idx} is out of range (max: {len(landmarks)-1})")
+
+            # Debug: Log how many landmarks we found
+            logger.info(f"Found {len(valid_landmarks)}/{len(landmark_indices)} required landmarks")
+
+            # We need at least 4 valid points for solvePnP
+            if len(valid_landmarks) < 4:
+                logger.error(f"Not enough valid landmarks for head pose estimation. Got {len(valid_landmarks)}/6")
                 return results
 
-            points_array = np.array(points_3d, dtype=np.float64)
+            # Convert landmarks to numpy array of 2D points (x, y)
+            image_points = np.array([[lm.x, lm.y] for lm in valid_landmarks], dtype=np.float64)
 
-            # Get relevant points for pose estimation
-            nose = points_array[0]  # Nose tip is first point
-            left_eye = points_array[1]  # Left eye
-            right_eye = points_array[2]  # Right eye
-
-            # Calculate vectors for pose estimation
-            eye_center = (left_eye + right_eye) / 2.0
-            nose_to_eye_center_vec = eye_center - nose
-
-            # Calculate pitch (nodding up/down)
-            # Using the angle between nose-to-eye-center and the horizontal plane
-            pitch = float(
-                np.arctan2(nose_to_eye_center_vec[1], np.linalg.norm([nose_to_eye_center_vec[0], nose_to_eye_center_vec[2]]))  # Y component
+            # Define the 3D model points for the head (in millimeters, relative to the center of the head)
+            # These are approximate positions for a generic head model
+            all_model_points = np.array(
+                [
+                    (0.0, 0.0, 0.0),  # Nose tip (center of the head)
+                    (0.0, -330.0, -65.0),  # Chin
+                    (-225.0, 170.0, -135.0),  # Left eye left corner
+                    (225.0, 170.0, -135.0),  # Right eye right corner
+                    (-150.0, -150.0, -125.0),  # Left Mouth corner
+                    (150.0, -150.0, -125.0),  # Right mouth corner
+                ],
+                dtype=np.float64,
             )
 
-            # Calculate yaw (shaking head left/right)
-            # Using the angle between nose-to-eye-center and the vertical plane
-            yaw = float(
-                np.arctan2(nose_to_eye_center_vec[0], np.linalg.norm([nose_to_eye_center_vec[1], nose_to_eye_center_vec[2]]))  # X component
-            )
+            # Only use the model points that correspond to valid landmarks
+            model_points = all_model_points[valid_indices]
 
-            # Calculate roll (tilting head left/right)
-            # Using the angle between the eye line and the horizontal plane
-            eye_line = right_eye - left_eye
-            roll = float(np.arctan2(eye_line[1], eye_line[0]))
+            logger.debug(f"Model points shape: {model_points.shape}")
+            logger.debug(f"Model points: \n{model_points}")
+            logger.debug(f"Image points shape: {image_points.shape}")
+            logger.debug(f"Image points: \n{image_points}")
 
-            results = {"pitch": pitch, "yaw": yaw, "roll": roll}
+            # Camera internals (approximate, can be refined)
+            # Using a default 640x480 resolution
+            size = (640, 480)
+            focal_length = size[1]
+            center = (size[1] / 2, size[0] / 2)
+            camera_matrix = np.array([[focal_length, 0, center[0]], [0, focal_length, center[1]], [0, 0, 1]], dtype=np.float64)
+
+            # Log camera parameters
+            logger.debug(f"Camera matrix:\n{camera_matrix}")
+            logger.debug(f"Image size: {size}")
+            logger.debug(f"Focal length: {focal_length}")
+            logger.debug(f"Center point: {center}")
+
+            # Assuming no lens distortion
+            dist_coeffs = np.zeros((4, 1), dtype=np.float64)
+            logger.debug(f"Distortion coefficients: {dist_coeffs.flatten()}")
+
+            # Log input to solvePnP
+            logger.debug("\n=== solvePnP Input ===")
+            logger.debug(f"Model points shape: {model_points.shape}")
+            logger.debug(f"Model points (first 3):\n{model_points[:3]}")
+            logger.debug(f"Image points shape: {image_points.shape}")
+            logger.debug(f"Image points (first 3):\n{image_points[:3]}")
+
+            # Solve PnP to get rotation and translation vectors
+            success, rvec, tvec = cv2.solvePnP(model_points, image_points, camera_matrix, dist_coeffs, flags=cv2.SOLVEPNP_ITERATIVE)
+
+            logger.debug("\n=== solvePnP Results ===")
+            logger.debug(f"Success: {success}")
+            logger.debug(f"Rotation vector (rvec): {rvec.flatten() if success else 'N/A'}")
+            logger.debug(f"Translation vector (tvec): {tvec.flatten() if success else 'N/A'}")
+
+            if not success or rvec is None or tvec is None:
+                logger.error("Failed to solve PnP or invalid results returned")
+                if not success:
+                    logger.error("solvePnP returned success=False")
+                if rvec is None:
+                    logger.error("Rotation vector is None")
+                if tvec is None:
+                    logger.error("Translation vector is None")
+                return results
+
+            # Convert rotation vector to rotation matrix
+            try:
+                rmat, _ = cv2.Rodrigues(rvec)
+                logger.debug("\n=== Rotation Matrix ===")
+                logger.debug(f"{rmat}")
+                logger.debug(f"Translation vector: {tvec.flatten()}")
+            except cv2.error as e:
+                logger.error(f"Error in Rodrigues conversion: {e}")
+                logger.error(f"rvec: {rvec}")
+                return results
+
+            # Calculate Euler angles from rotation matrix
+            try:
+                # Extract angles using the standard approach for Tait-Bryan angles (ZYX convention)
+                pitch = np.arctan2(-rmat[2, 0], np.sqrt(rmat[2, 1] ** 2 + rmat[2, 2] ** 2))
+                yaw = np.arctan2(rmat[1, 0], rmat[0, 0])
+                roll = np.arctan2(rmat[2, 1], rmat[2, 2])
+
+                # Convert to degrees and update results
+                results["pitch"] = float(np.degrees(pitch))
+                results["yaw"] = float(np.degrees(yaw))
+                results["roll"] = float(np.degrees(roll))
+
+                logger.debug("\n=== Calculated Angles (radians) ===")
+                logger.debug(f"Pitch: {pitch:.4f}, Yaw: {yaw:.4f}, Roll: {roll:.4f}")
+                logger.info("\n=== Head Pose Angles (degrees) ===")
+                logger.info(f"Pitch: {results['pitch']:.2f}°")
+                logger.info(f"Yaw: {results['yaw']:.2f}°")
+                logger.info(f"Roll: {results['roll']:.2f}°")
+
+            except Exception as e:
+                logger.error(f"Error calculating angles: {e}")
+                logger.error(f"Rotation matrix: {rmat}")
+                return results
+
+            return results
 
         except Exception as e:
-            logger.error("Error calculating head pose: %s", str(e))
-
-        return results
+            logger.error(f"Unexpected error in _calculate_head_pose: {e}", exc_info=True)
+            return results
 
     def _annotate_frame(
         self,

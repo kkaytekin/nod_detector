@@ -70,20 +70,50 @@ def test_video_processing_pipeline_process(
 
     mock_video_capture.return_value = mock_cap
 
-    # Initialize and run pipeline with visualization enabled
+    # Initialize pipeline
     pipeline = VideoProcessingPipeline()
-    results = pipeline.process(sample_video_path, visualize=True)
 
-    # Verify results
-    assert "video_info" in results
-    assert "frame_results" in results
-    assert "detections" in results
-    assert results["video_info"]["fps"] == 30.0
-    assert results["video_info"]["frame_width"] == 1920
-    assert results["video_info"]["frame_height"] == 1080
-    assert results["video_info"]["total_frames"] == 100
-    # The test should process one frame, but we need to ensure the frame results are collected
-    assert len(results["frame_results"]) >= 0  # At least one frame should be processed
+    # Mock the detector's process_frame method to return sample results
+    with patch.object(pipeline.detector, "process_frame") as mock_process_frame:
+        # Setup the mock to return sample detection results
+        mock_process_frame.return_value = (
+            {"head_pose": {"pitch": 0.0, "yaw": 0.0, "roll": 0.0}, "pose_landmarks": {}, "face_landmarks": {}, "timestamp": 0.0},
+            np.zeros((1080, 1920, 3), dtype=np.uint8),
+        )
+
+        # Run the pipeline
+        results = pipeline.process(sample_video_path, visualize=True)
+
+        # Verify the results structure
+        assert isinstance(results, dict)
+        assert "video_info" in results
+        assert "frame_results" in results
+        assert "detections" in results
+
+        # Verify video info
+        video_info = results["video_info"]
+        assert video_info["fps"] == 30.0
+        assert video_info["frame_width"] == 1920
+        assert video_info["frame_height"] == 1080
+        assert video_info["total_frames"] == 100
+
+        # Verify frame results
+        assert isinstance(results["frame_results"], list)
+        assert len(results["frame_results"]) > 0
+
+        # Check the first frame result
+        frame_result = results["frame_results"][0]
+        assert "head_pose" in frame_result
+        assert "pose_landmarks" in frame_result
+        assert "face_landmarks" in frame_result
+        assert "timestamp" in frame_result
+
+        # Verify the head_pose structure
+        head_pose = frame_result["head_pose"]
+        assert isinstance(head_pose, dict)
+        assert "pitch" in head_pose
+        assert "yaw" in head_pose
+        assert "roll" in head_pose
 
     # Verify video capture was called correctly
     mock_video_capture.assert_called_once_with(sample_video_path)
