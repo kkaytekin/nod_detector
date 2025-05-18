@@ -42,11 +42,9 @@ misc/
 *~
 .DS_Store
 
-# Project specific
-.windsurf/
-
 # Media files
 data/
+output/
 *.mp4
 *.avi
 *.mov

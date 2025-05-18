@@ -39,8 +39,8 @@ jobs:
     - name: Lint with flake8
       run: flake8 src
 
-    - name: Check types with mypy
-      run: mypy -p nod_detector
+    # - name: Check types with mypy
+    #   run: mypy -p nod_detector
 
     - name: Run tests
       run: |

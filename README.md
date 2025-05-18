@@ -1,12 +1,15 @@
 # Nod Detector 👋
 
-A Python package for detecting nodding behavior in videos using MediaPipe. Easily analyze head movements and identify nodding patterns in your video files.
+A Python package for detecting nodding behavior in videos using MediaPipe. This tool analyzes head movements and identifies nodding patterns by tracking 3D face and pose landmarks in video files.
+
+![Nod Detector](media/cover_image.png)
 
 ## 🚀 Installation
 
 ### Prerequisites
-- Python 3.x
-- MediaPipe
+- Python 3.8 or higher
+- MediaPipe (automatically installed via requirements.txt)
+- Rerun (automatically installed via requirements.txt)
 
 ### Setup
 ```bash
@@ -30,11 +33,17 @@ pip install -e .
 
 Process a video file with a single command:
 ```bash
+# Install dependencies
+pip install -r requirements.txt
+
 # Show all available options
 python -m nod_detector --help
 
-# Process a video file
-python -m --input path/to/input_video.mp4
+# Process a video file with visualization
+python -m nod_detector --input path/to/input_video.mp4 --visualize
+
+# Save results to JSON
+python -m nod_detector --input path/to/input_video.mp4 --output results.json
 ```
 
 ### Expected Output
@@ -49,16 +58,29 @@ nod_detector/
 ├── src/
 │   └── nod_detector/     # Main package
 │       ├── pipeline/     # Video processing pipeline
+│       ├── mediapipe_components.py  # MediaPipe integration
 │       ├── main.py       # Command-line interface
 │       └── __init__.py   # Package definition
 ├── tests/                # Test suite
+│   ├── unit/            # Unit tests
+│   └── integration/      # Integration tests
 └── examples/             # Example scripts
 ```
+
+## 🔍 Features
+
+- **3D Face Landmark Detection**: Tracks 478 facial landmarks in 3D space
+- **Pose Estimation**: Detects 33 pose landmarks for full body tracking
+- **Head Pose Estimation**: Calculates pitch, yaw, and roll angles of the head
+- **Real-time Visualization**: Visualizes landmarks and head pose in real-time
+- **JSON Export**: Saves detection results in a structured JSON format
+- **Modular Design**: Easy to extend with custom detection algorithms
 
 ## 🔍 Assumptions
 - The input video contains clear frontal or near-frontal views of faces
 - Lighting conditions are sufficient for face detection
 - The subject's head is visible for most of the video duration
+- The subject is within 1-2 meters from the camera for optimal detection
 
 ## 🤝 Contributing
 
