@@ -23,7 +23,8 @@ python -m venv venv
 pip install -e .
 
 # For development, install with additional development dependencies
-# pip install -e ".[dev]"```
+# pip install -e ".[dev]"
+```
 
 ## 🎬 Quick Start
 
@@ -50,35 +51,10 @@ nod_detector/
 └── examples/             # Example scripts
 ```
 
-## Assumptions
+## 🔍 Assumptions
 - The input video contains clear frontal or near-frontal views of faces
 - Lighting conditions are sufficient for face detection
 - The subject's head is visible for most of the video duration
-
-## 🧪 Testing
-
-The project includes a comprehensive test suite to ensure reliability and maintainability.
-
-### Running Tests
-
-```bash
-# Run all tests
-pytest
-
-# Run only unit tests
-pytest tests/unit/
-
-# Run only integration tests
-pytest tests/integration/ -m integration
-
-# Run tests with coverage report
-pytest --cov=src/nod_detector --cov-report=term-missing
-```
-
-### Test Structure
-- `tests/unit/`: Unit tests for individual components
-- `tests/integration/`: Integration tests that verify the system as a whole
-- `tests/data/`: Test data and fixtures
 
 ## 🤝 Contributing
 
@@ -114,7 +90,7 @@ flake8  # Configured to exclude .venv and other common directories
 mypy src/
 ```
 
-### Pre-commit Hooks
+### 🔩 Pre-commit Hooks
 This project uses pre-commit to run several code quality checks before each commit. The following hooks are configured:
 
 - **Black**: Code formatting
@@ -125,7 +101,7 @@ This project uses pre-commit to run several code quality checks before each comm
 
 These hooks run automatically when you make a commit. If any checks fail, the commit will be aborted and you'll need to fix the issues before committing.
 
-### Development Workflow
+### 🚀 Development Workflow
 1. Write tests for new features or bug fixes
 2. Implement the feature/fix to make the tests pass
 3. Run tests and fix any issues (`pytest`)
@@ -134,6 +110,31 @@ These hooks run automatically when you make a commit. If any checks fail, the co
 6. Run type checking (`mypy src/`)
 7. Stage and commit your changes - pre-commit hooks will run automatically
 8. Push to your fork and open a pull request
+
+### 🧪 Testing
+
+The project includes a comprehensive test suite to ensure reliability and maintainability.
+
+#### Running Tests
+
+```bash
+# Run all tests
+pytest
+
+# Run only unit tests
+pytest tests/unit/
+
+# Run only integration tests
+pytest tests/integration/ -m integration
+
+# Run tests with coverage report
+pytest --cov=src/nod_detector --cov-report=term-missing
+```
+
+#### Test Structure
+- `tests/unit/`: Unit tests for individual components
+- `tests/integration/`: Integration tests that verify the system as a whole
+- `tests/data/`: Test data and fixtures
 
 ### Configuration Files
 - `.flake8`: Flake8 configuration (excludes, line length, etc.)

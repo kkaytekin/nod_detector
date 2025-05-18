@@ -2,7 +2,6 @@
 Pytest configuration and fixtures for nod_detector tests.
 """
 
-import os
 import sys
 from pathlib import Path
 

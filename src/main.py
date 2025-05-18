@@ -25,9 +25,7 @@ def parse_arguments() -> argparse.Namespace:
         argparse.Namespace: Parsed command line arguments
     """
     parser = argparse.ArgumentParser(description="Nod Detection System")
-    parser.add_argument(
-        "--input", type=str, required=True, help="Path to the input video file"
-    )
+    parser.add_argument("--input", type=str, required=True, help="Path to the input video file")
     parser.add_argument(
         "--output",
         type=str,
@@ -60,9 +58,7 @@ def main() -> int:
         results = pipeline.process(args.input)
 
         # Log summary
-        logger.info(
-            f"Processing complete. Processed {len(results['frame_results'])} frames."
-        )
+        logger.info(f"Processing complete. Processed {len(results['frame_results'])} frames.")
 
     except Exception as e:
         logger.error(f"Error processing video: {str(e)}", exc_info=True)

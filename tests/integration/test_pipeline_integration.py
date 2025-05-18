@@ -4,7 +4,6 @@ Integration tests for the video processing pipeline.
 
 from pathlib import Path
 
-import cv2
 import pytest
 
 from nod_detector.pipeline.video_processing_pipeline import VideoProcessingPipeline

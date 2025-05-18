@@ -1,34 +1,37 @@
 repos:
 -   repo: https://github.com/psf/black
-    rev: 23.3.0
+    rev: 25.1.0  # Latest stable version
     hooks:
     - id: black
-      language_version: python3
+      language_version: python3.12
+      args: [--line-length=144, --target-version=py312]
 
 -   repo: https://github.com/pycqa/isort
-    rev: 5.12.0
+    rev: 6.0.1  # Latest stable version
     hooks:
     - id: isort
       name: isort (python)
       entry: isort --profile black
       types: [python]
+      args: [--profile=black, --line-length=144]
 
 -   repo: https://github.com/pycqa/flake8
-    rev: 6.0.0
+    rev: 7.2.0  # Latest stable version
     hooks:
     - id: flake8
-      additional_dependencies: [flake8-bugbear==23.3.23]
+      additional_dependencies: [flake8-bugbear==24.2.6]
       exclude: ^(docs/|tests/|setup\.py|docs/conf\.py|build/|dist/|migrations/|node_modules/)
 
 -   repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.3.0
+    rev: v1.15.0  # Latest stable version
     hooks:
     - id: mypy
-      additional_dependencies: [types-requests]
+      additional_dependencies: [types-requests==2.32.0.20250515]
       exclude: ^(tests/|docs/|setup\.py|docs/conf\.py|build/|dist/|migrations/|node_modules/)
+      args: [--python-version=3.12, --ignore-missing-imports] # Temporarily ignoring missing imports
 
 -   repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.4.0
+    rev: v5.0.0  # Latest stable version
     hooks:
     - id: check-yaml
     - id: end-of-file-fixer

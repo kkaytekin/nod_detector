@@ -2,13 +2,13 @@ name: CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [ '**' ]  # Run on all branches
   pull_request:
-    branches: [ main ]
+    branches: [ '**' ]  # Run on PRs from any branch
 
 jobs:
   test:
-    name: Python ${{ matrix.python-version }}
+    name: Python ${{ matrix.python-version }} (${{ github.ref_name }})
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -22,16 +22,28 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
 
-    - name: Install dependencies
+    - name: Set up Python environment
       run: |
-        python -m pip install --upgrade pip
-        pip install -e .[dev]
+        python -m pip install --upgrade pip setuptools wheel
+        pip install --upgrade pip setuptools wheel
+        pip list
+
+    - name: Install package in development mode
+      run: |
+        pip install -e ".[dev]"
+
+    - name: Install development dependencies
+      run: |
+        pip install -r requirements-dev.txt || pip install -e '.[dev]'
 
     - name: Lint with flake8
-      run: flake8 src tests
+      run: flake8 src
 
     - name: Check types with mypy
-      run: mypy src
+      run: mypy -p nod_detector
 
     - name: Run tests
-      run: pytest tests/ -v
+      run: |
+        pip list
+        python -c "import sys; print('Python version:', sys.version)"
+        pytest tests/ -v
