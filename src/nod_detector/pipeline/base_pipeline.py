@@ -25,11 +25,12 @@ class BasePipeline(ABC, Generic[T]):
         """Initialize the pipeline with default parameters."""
         self._is_running = False
 
-    def process(self, input_data: Any) -> T:
+    def process(self, input_data: Any, **kwargs: Any) -> T:
         """Process the input data through the pipeline.
 
         Args:
             input_data: The input data to process.
+            **kwargs: Additional parameters specific to the pipeline implementation.
 
         Returns:
             The processing results as a dictionary.
@@ -43,7 +44,7 @@ class BasePipeline(ABC, Generic[T]):
 
         self._is_running = True
         try:
-            return self._process(input_data)
+            return self._process(input_data, **kwargs)
         except Exception as e:
             logger.error("Error processing pipeline: %s", str(e), exc_info=True)
             raise
@@ -51,11 +52,12 @@ class BasePipeline(ABC, Generic[T]):
             self._is_running = False
 
     @abstractmethod
-    def _process(self, input_data: Any) -> T:
+    def _process(self, input_data: Any, **kwargs: Any) -> T:
         """Internal processing method to be implemented by subclasses.
 
         Args:
             input_data: The input data to process.
+            **kwargs: Additional parameters specific to the pipeline implementation.
 
         Returns:
             The processing results as a dictionary.
