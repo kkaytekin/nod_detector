@@ -73,8 +73,8 @@ def process_video(
         ) as progress:
             task = progress.add_task("Processing video...", total=None)
 
-            # Process the video
-            result = pipeline.process(str(input_path))
+            # Process the video with visualization flag
+            result = pipeline.process(str(input_path), visualize=visualize)
 
             # Update progress
             progress.update(task, completed=1, description="Processing complete!")

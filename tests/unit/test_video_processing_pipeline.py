@@ -70,9 +70,9 @@ def test_video_processing_pipeline_process(
 
     mock_video_capture.return_value = mock_cap
 
-    # Initialize and run pipeline
+    # Initialize and run pipeline with visualization enabled
     pipeline = VideoProcessingPipeline()
-    results = pipeline.process(sample_video_path)
+    results = pipeline.process(sample_video_path, visualize=True)
 
     # Verify results
     assert "video_info" in results

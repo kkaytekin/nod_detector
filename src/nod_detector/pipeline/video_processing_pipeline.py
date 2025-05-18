@@ -81,7 +81,7 @@ class VideoProcessingPipeline(BasePipeline["ProcessingResults"]):
 
     def _visualize_frame(
         self,
-        frame: npt.NDArray[np.uint8],
+        frame: npt.NDArray[np.uint8],  # type: ignore[type-arg]  # OpenCV frame type
         frame_number: int,
         video_info: VideoInfo,
         results: Optional[FrameResult] = None,
@@ -89,7 +89,7 @@ class VideoProcessingPipeline(BasePipeline["ProcessingResults"]):
         """Visualize the frame and results using rerun.io.
 
         Args:
-            frame: The video frame to visualize.
+            frame: The video frame to visualize as a numpy array of uint8.
             frame_number: Current frame number.
             video_info: Dictionary containing video metadata.
             results: Optional frame processing results.
@@ -98,8 +98,9 @@ class VideoProcessingPipeline(BasePipeline["ProcessingResults"]):
         rr.set_time_seconds("time", time.time())
         rr.set_time_sequence("frame", frame_number)
         # Convert BGR to RGB for visualization
-        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        rr.log("video/frame", rr.Image(frame_rgb))
+        if frame is not None and frame.size > 0:  # Check if frame is not empty
+            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            rr.log("video/frame", rr.Image(frame_rgb))
         # Log video info as text
         info_text = f"""
         Frame: {frame_number}/{video_info['total_frames']}
@@ -120,12 +121,13 @@ class VideoProcessingPipeline(BasePipeline["ProcessingResults"]):
                 ),
             )
 
-    def _process(self, input_data: Any, **kwargs: Any) -> ProcessingResults:
+    def _process(self, input_data: Any, visualize: bool = False, **kwargs: Any) -> ProcessingResults:
         """
         Process the input video to detect nodding behavior.
 
         Args:
             input_data: Input data to process (expected to be a video path).
+            visualize: If True, enables visualization of the processing.
             **kwargs: Additional keyword arguments.
 
         Returns:
@@ -145,12 +147,11 @@ class VideoProcessingPipeline(BasePipeline["ProcessingResults"]):
             frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
             total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
-            # Initialize rerun
-            video_name = Path(video_path).stem
-            rr.init(f"Nod Detector - {video_name}", spawn=True)
-            # Set up the visualization
-            rr.log("world", rr.ViewCoordinates.RDF)  # Right-Down-Forward for computer vision
-            total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+            # Initialize visualization if enabled
+            if visualize:
+                video_name = Path(video_path).stem
+                rr.init(f"Nod Detector - {video_name}", spawn=True)
+                rr.log("world", rr.ViewCoordinates.RDF)  # Right-Down-Forward for computer vision
 
             # Initialize results dictionary with proper typing
             results_dict: ProcessingResultsDict = {
@@ -182,8 +183,16 @@ class VideoProcessingPipeline(BasePipeline["ProcessingResults"]):
 
             while cap.isOpened():
                 ret, frame = cap.read()
-                if not ret:
+                if not ret or frame is None:
                     break
+
+                # Ensure the frame is in the correct format (BGR)
+                if frame.dtype != np.uint8:
+                    print(
+                        f"WARNING: Frame {self.frame_count} has a data type of {frame.dtype}, "
+                        "which is not the expected np.uint8. Converting to np.uint8."
+                    )
+                    frame = frame.astype(np.uint8)
 
                 # Process frame (to be implemented)
                 frame_result: FrameResult = {
@@ -192,12 +201,14 @@ class VideoProcessingPipeline(BasePipeline["ProcessingResults"]):
                     "head_pose": {"pitch": 0.0, "yaw": 0.0, "roll": 0.0},  # Placeholder - will be updated with actual values
                     "nod_detected": False,
                 }
-                # Visualize the current frame with results
-                self._visualize_frame(frame, self.frame_count, video_info, frame_result)
+                # Visualize the current frame with results if enabled
+                if visualize:
+                    self._visualize_frame(frame.astype(np.uint8), self.frame_count, video_info, frame_result)
+                    # Add a small delay to keep the visualization at the video's frame rate
+                    time.sleep(1.0 / (fps * 1.5))  # Slightly faster than real-time
+
                 frame_results.append(frame_result)
                 self.frame_count += 1
-                # Add a small delay to keep the visualization at the video's frame rate
-                time.sleep(1.0 / (fps * 1.5))  # Slightly faster than real-time
 
             return results
 

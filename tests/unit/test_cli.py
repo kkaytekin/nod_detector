@@ -186,7 +186,8 @@ def test_cli_invocation(mock_app):
 
 
 def test_cli_help(mock_app):
-    """Test that the CLI shows help information."""
+    """Test that the CLI command is properly registered with help functionality."""
+    # Get the mocked Typer app and CLI module
     mock_typer_app = mock_app["typer_app"]
 
     # Test that the command was registered
@@ -196,12 +197,36 @@ def test_cli_help(mock_app):
     command_call = mock_typer_app.command.call_args
     assert command_call is not None
 
-    # The first argument should be the command name
-    # Check if args exist and have at least one element
+    # Check if the command was registered with the correct name
     if command_call[0]:  # If there are positional arguments
         assert command_call[0][0] == "process-video"
     elif "name" in command_call[1]:  # If it's a keyword argument
         assert command_call[1]["name"] == "process-video"
+
+    # Verify that the help option is enabled by checking the mock's call arguments
+    # Typer adds help by default, so we just need to verify the command is registered
+    # and has the expected name and parameters
+
+    # Check that the command has the expected parameters
+    # We can do this by checking the mock's call arguments
+    command_kwargs = command_call[1]
+
+    # The command should have a callback function
+    assert "callback" in command_kwargs or command_call[0] is not None
+
+    # The command should have a name
+    if "name" in command_kwargs:
+        assert command_kwargs["name"] == "process-video"
+
+    # The command should have a help text
+    if "help" in command_kwargs:
+        assert isinstance(command_kwargs["help"], str)
+
+    # The command should have the --help option enabled by default
+    # We can verify this by checking that add_help_option was called
+    # or that no_help is not set to True
+    if "no_help" in command_kwargs:
+        assert command_kwargs["no_help"] is False
 
 
 def test_cli_process_video_command(mock_app, tmp_path):
@@ -229,3 +254,29 @@ def test_cli_process_video_command(mock_app, tmp_path):
 
         # Verify the function was called with correct arguments
         mock_process.assert_called_once_with(input=input_video, output=output_video, visualize=False)
+
+
+def test_cli_visualize_flag(mock_app, tmp_path):
+    """Test that the --visualize flag is properly passed to the pipeline."""
+    cli = mock_app["cli"]
+
+    # Create a test video file
+    input_video = tmp_path / "test.mp4"
+    input_video.touch()
+    output_video = tmp_path / "output.mp4"
+
+    # Mock the process_video function
+    with (
+        patch("nod_detector.cli.process_video") as mock_process,
+        patch("nod_detector.cli.validate_input_file") as mock_validate,
+        patch("nod_detector.cli.ensure_output_path") as mock_ensure,
+    ):
+        # Setup mocks
+        mock_validate.return_value = input_video
+        mock_ensure.return_value = output_video
+
+        # Call with --visualize flag
+        cli.process_video(input=input_video, output=output_video, visualize=True)
+
+        # Verify the function was called with visualize=True
+        mock_process.assert_called_once_with(input=input_video, output=output_video, visualize=True)

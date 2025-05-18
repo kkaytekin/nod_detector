@@ -26,8 +26,8 @@ def test_process_sample_video(sample_video_path, tmp_path):
     # Initialize pipeline
     pipeline = VideoProcessingPipeline()
 
-    # Process the video
-    results = pipeline.process(sample_video_path)
+    # Process the video with visualization disabled
+    results = pipeline.process(sample_video_path, visualize=False)
 
     # Basic assertions about the results
     assert "video_info" in results
