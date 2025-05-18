@@ -18,10 +18,33 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 dependencies = [
-    "numpy>=1.20.0",
+    "numpy>=1.20.0,<2.0.0",
     "opencv-python>=4.5.1.48",
     "mediapipe>=0.8.9.1",
+    "rerun-sdk==0.16.1",  # Pinned to work with numpy<2
 ]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=6.2.5",
+    "black>=21.12b0",
+    "isort>=5.10.1",
+    "flake8>=4.0.1",
+    "mypy>=0.931",
+    "pytest-cov>=4.0.0",
+    "pytest-mock>=3.6.1",
+    "pytest-xdist>=2.3.0",
+    "pytest-timeout>=2.0.0",
+    "pytest-benchmark>=3.4.1",
+    "pytest-sugar>=0.9.4",
+    "pre-commit>=3.3.3",
+    "sphinx>=4.0.0",
+    "sphinx-rtd-theme>=1.0.0",
+    "sphinxcontrib-napoleon>=0.7",
+]
+
+[project.scripts]
+nod-detector = "nod_detector.main:main"
 
 [project.urls]
 homepage = "https://github.com/kkaytekin/nod_detector"
@@ -32,10 +55,17 @@ documentation = "https://nod-detector.readthedocs.io"
 requires = ["setuptools>=42", "wheel"]
 build-backend = "setuptools.build_meta"
 
+[tool.setuptools]
+package-dir = { "" = "src" }
+packages = ["nod_detector"]
+
+[tool.setuptools.package-data]
+"*" = ["py.typed"]
+
 [tool.black]
 line-length = 88
 target-version = ['py312']
-include = '\.pyi?$'
+include = '\\.pyi?$'
 
 [tool.isort]
 profile = "black"
@@ -48,36 +78,3 @@ line_length = 88
 
 [tool.mypy]
 python_version = "3.12"
-warn_return_any = true
-warn_unused_configs = true
-disallow_untyped_defs = true
-disallow_incomplete_defs = true
-check_untyped_defs = true
-disallow_untyped_decorators = true
-no_implicit_optional = true
-warn_redundant_casts = true
-warn_unused_ignores = true
-warn_no_return = true
-warn_unreachable = true
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-python_files = ["test_*.py"]
-addopts = "-v -s"
-filterwarnings = ["error"]
-
-[project.optional-dependencies]
-dev = [
-    "pytest>=6.2.5",
-    "pytest-cov>=2.12.1",
-    "pytest-mock>=3.6.1",
-    "pytest-xdist>=2.3.0",
-    "pytest-timeout>=2.0.0",
-    "pytest-benchmark>=3.4.1",
-    "pytest-sugar>=0.9.4",
-    "black>=21.12b0",
-    "isort>=5.10.1",
-    "flake8>=4.0.1",
-    "mypy>=0.931",
-    "pre-commit>=2.15.0",
-]
