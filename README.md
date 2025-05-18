@@ -30,12 +30,16 @@ pip install -e .
 
 Process a video file with a single command:
 ```bash
+# Show all available options
+python -m nod_detector --help
+
 # Process a video file
-nod-detector --input path/to/input_video.mp4 --output output.mp4
+python -m --input path/to/input_video.mp4
 ```
 
 ### Expected Output
 - Processed video file with visualizations
+- Interactive visualization using rerun.io (when --visualize flag is used)
 - Console output showing processing statistics
 - (Future) JSON file with detailed nod detection data
 
@@ -135,6 +139,24 @@ pytest --cov=src/nod_detector --cov-report=term-missing
 - `tests/unit/`: Unit tests for individual components
 - `tests/integration/`: Integration tests that verify the system as a whole
 - `tests/data/`: Test data and fixtures
+
+### 🎥 Visualization with Rerun
+
+The nod detector supports interactive visualization using [Rerun](https://rerun.io/), a visualization tool for computer vision and robotics. When enabled with the `--visualize` flag, the pipeline will launch a Rerun viewer that shows:
+
+- The input video stream
+### TODO: Future
+- Detected face landmarks
+- Head pose estimation (pitch, yaw, roll)
+- Nod detection status
+- Bounding boxes around detected faces
+
+### Using the Rerun Viewer
+
+1. The Rerun viewer will open automatically when you run the detector with the `--visualize` flag.
+2. Use the timeline at the bottom to scrub through frames.
+3. Toggle different visualizations using the right sidebar.
+4. The 3D view shows the estimated head pose in 3D space.
 
 ### Configuration Files
 - `.flake8`: Flake8 configuration (excludes, line length, etc.)
