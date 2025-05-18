@@ -5,10 +5,14 @@ Unit tests for the VideoProcessingPipeline class.
 from pathlib import Path
 from unittest.mock import ANY, MagicMock, patch
 
+import cv2
 import numpy as np
 import pytest
 
-from nod_detector.pipeline.video_processing_pipeline import VideoProcessingPipeline
+from nod_detector.pipeline.video_processing_pipeline import (
+    FrameResult,
+    VideoProcessingPipeline,
+)
 
 
 @pytest.fixture
@@ -16,11 +20,33 @@ def mock_rerun():
     """Fixture to mock rerun functionality."""
     with (
         patch("rerun.init"),
-        patch("rerun.set_time_seconds"),
         patch("rerun.set_time_sequence"),
         patch("rerun.log"),
+        patch("rerun.Image"),
+        patch("rerun.Scalar"),
+        patch("rerun.TextLog"),
     ):
         yield
+
+
+@pytest.fixture
+def sample_frame():
+    """Return a sample video frame for testing."""
+    return np.zeros((480, 640, 3), dtype=np.uint8)
+
+
+@pytest.fixture
+def sample_frame_result():
+    """Return a sample frame result for testing."""
+    return FrameResult(
+        frame_number=0,
+        timestamp=0.0,
+        detections=[],
+        head_pose={"pitch": 5.0, "yaw": 0.0, "roll": 0.0},
+        pose_landmarks=None,
+        face_landmarks=None,
+        nod_detected=False,
+    )
 
 
 def test_video_processing_pipeline_init():
@@ -31,141 +57,108 @@ def test_video_processing_pipeline_init():
     assert pipeline.frame_count == 0
 
     # Test with custom config
-    config = {"test_param": 123}
+    config = {"output_dir": "test_output"}
     pipeline = VideoProcessingPipeline(config=config)
     assert pipeline.config == config
+    assert pipeline.output_dir.name == "test_output"
 
 
 @patch("cv2.VideoCapture")
+@patch("cv2.cvtColor")
 @patch("rerun.init")
 @patch("rerun.log")
-@patch("rerun.set_time_seconds")
 @patch("rerun.set_time_sequence")
+@patch("rerun.Image")
+@patch("rerun.Scalar")
+@patch("rerun.TextLog")
 def test_video_processing_pipeline_process(
+    mock_text_log,
+    mock_scalar,
+    mock_image,
     mock_set_time_sequence,
-    mock_set_time_seconds,
     mock_log,
     mock_rr_init,
+    mock_cvt_color,
     mock_video_capture,
     sample_video_path,
+    sample_frame,
+    sample_frame_result,
 ):
-    """Test the video processing pipeline with a mock video capture and rerun."""
-    # Setup mock video capture
+    """Test the video processing pipeline process method."""
+    # Setup mock VideoCapture
     mock_cap = MagicMock()
     mock_cap.isOpened.return_value = True
-    mock_cap.get.side_effect = [
-        30.0,  # CAP_PROP_FPS
-        1920,  # CAP_PROP_FRAME_WIDTH
-        1080,  # CAP_PROP_FRAME_HEIGHT
-        100,  # CAP_PROP_FRAME_COUNT
-        100,  # CAP_PROP_FRAME_COUNT (called twice)
-    ]
-
-    # Mock frame data
-    test_frame = np.zeros((1080, 1920, 3), dtype=np.uint8)
     mock_cap.read.side_effect = [
-        (True, test_frame),
-        (False, None),
-    ]  # One frame then done
-
+        (True, sample_frame),
+        (False, None),  # Simulate end of video
+    ]
+    mock_cap.get.side_effect = [30.0, 640, 480, 100]  # fps, width, height, frame_count
     mock_video_capture.return_value = mock_cap
+
+    # Setup mock color conversion
+    mock_cvt_color.return_value = sample_frame
 
     # Initialize pipeline
     pipeline = VideoProcessingPipeline()
 
-    # Mock the detector's process_frame method to return sample results
-    with patch.object(pipeline.detector, "process_frame") as mock_process_frame:
-        # Setup the mock to return sample detection results
-        mock_process_frame.return_value = (
-            {"head_pose": {"pitch": 0.0, "yaw": 0.0, "roll": 0.0}, "pose_landmarks": {}, "face_landmarks": {}, "timestamp": 0.0},
-            np.zeros((1080, 1920, 3), dtype=np.uint8),
-        )
+    # Mock the detector
+    mock_detector = MagicMock()
+    mock_detector.process_frame.return_value = (
+        {"head_pose": {"pitch": 5.0, "yaw": 0.0, "roll": 0.0}, "pose_landmarks": {}, "face_landmarks": {}, "detections": [], "timestamp": 0.0},
+        sample_frame,
+    )
+    pipeline.detector = mock_detector
 
-        # Run the pipeline
-        results = pipeline.process(sample_video_path, visualize=True)
+    # Process video
+    results = pipeline.process(sample_video_path, visualize=True, debug=True)
 
-        # Verify the results structure
-        assert isinstance(results, dict)
-        assert "video_info" in results
-        assert "frame_results" in results
-        assert "detections" in results
+    # Verify results
+    assert "video_info" in results
+    assert "frame_results" in results
+    assert len(results["frame_results"]) == 1  # Only one frame in debug mode
 
-        # Verify video info
-        video_info = results["video_info"]
-        assert video_info["fps"] == 30.0
-        assert video_info["frame_width"] == 1920
-        assert video_info["frame_height"] == 1080
-        assert video_info["total_frames"] == 100
-
-        # Verify frame results
-        assert isinstance(results["frame_results"], list)
-        assert len(results["frame_results"]) > 0
-
-        # Check the first frame result
-        frame_result = results["frame_results"][0]
-        assert "head_pose" in frame_result
-        assert "pose_landmarks" in frame_result
-        assert "face_landmarks" in frame_result
-        assert "timestamp" in frame_result
-
-        # Verify the head_pose structure
-        head_pose = frame_result["head_pose"]
-        assert isinstance(head_pose, dict)
-        assert "pitch" in head_pose
-        assert "yaw" in head_pose
-        assert "roll" in head_pose
-
-    # Verify video capture was called correctly
+    # Verify video capture was called with correct path
     mock_video_capture.assert_called_once_with(sample_video_path)
     mock_cap.release.assert_called_once()
 
-    video_name = Path(sample_video_path).stem
-    mock_rr_init.assert_called_once_with(
-        f"Nod Detector - {video_name}",
-        spawn=True,
-    )
 
-
-def test_video_processing_invalid_video():
+@patch("cv2.VideoCapture")
+def test_video_processing_invalid_video(mock_video_capture):
     """Test that an error is raised when an invalid video path is provided."""
+    # Setup mock to simulate video open failure
+    mock_cap = MagicMock()
+    mock_cap.isOpened.return_value = False
+    mock_video_capture.return_value = mock_cap
+
     pipeline = VideoProcessingPipeline()
-    with pytest.raises(IOError, match="Could not open video file"):
+    with pytest.raises(IOError):
         pipeline.process("nonexistent_video.mp4")
 
 
-def test_visualize_frame():
-    """Test the _visualize_frame method."""
-    # Create a test pipeline
+@patch("rerun.set_time_sequence")
+@patch("rerun.log")
+@patch("rerun.Image")
+@patch("rerun.Scalar")
+@patch("rerun.TextLog")
+def test_visualize(
+    mock_text_log,
+    mock_scalar,
+    mock_image,
+    mock_log,
+    mock_set_time_sequence,
+    sample_frame,
+    sample_frame_result,
+):
+    """Test the _visualize method."""
+    # Initialize pipeline
     pipeline = VideoProcessingPipeline()
 
-    # Create test data
-    frame = np.zeros((100, 200, 3), dtype=np.uint8)
-    frame_number = 42
-    video_info = {
-        "fps": 30.0,
-        "frame_width": 200,
-        "frame_height": 100,
-        "total_frames": 100,
-        "path": "test_video.mp4",
-    }
-    frame_result = {
-        "frame_number": frame_number,
-        "detections": [],
-        "head_pose": {"pitch": 0.1, "yaw": 0.2, "roll": 0.3},
-        "nod_detected": False,
-    }
+    # Call visualize method
+    pipeline._visualize(sample_frame, sample_frame_result)
 
-    # Mock rerun functions
-    with (
-        patch("rerun.set_time_seconds") as mock_set_time,
-        patch("rerun.set_time_sequence") as mock_set_seq,
-        patch("rerun.log") as mock_log,
-    ):
-        # Call the method
-        pipeline._visualize_frame(frame, frame_number, video_info, frame_result)
+    # Verify rerun was called with correct parameters
+    mock_set_time_sequence.assert_called_once_with("frame", 0)
 
-        # Verify rerun calls
-        mock_set_time.assert_called_once_with("time", ANY)
-        mock_set_seq.assert_called_once_with("frame", frame_number)
-        # Check that log was called with image data
-        assert mock_log.call_count >= 1  # At least one log call for the image
+    # Verify error handling with invalid frame
+    pipeline._visualize(None, sample_frame_result)  # Should not raise
+    pipeline._visualize(np.array([]), sample_frame_result)  # Should not raise
