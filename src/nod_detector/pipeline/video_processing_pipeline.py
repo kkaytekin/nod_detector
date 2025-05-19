@@ -498,22 +498,24 @@ class VideoProcessingPipeline(BasePipeline["ProcessingResults"]):
             head_pose = frame_result.get("head_pose")
             if head_pose:
                 pitch = head_pose.get("pitch", 0.0)
-                yaw = head_pose.get("yaw", 0.0)
-                roll = head_pose.get("roll", 0.0)
+                # yaw = head_pose.get("yaw", 0.0)
+                # roll = head_pose.get("roll", 0.0)
 
                 # Log head pose data as scalars
                 rr.log("metrics/pitch", rr.Scalar(pitch))
-                rr.log("metrics/yaw", rr.Scalar(yaw))
-                rr.log("metrics/roll", rr.Scalar(roll))
+                # Do not log yaw and roll as they are not used
+                # rr.log("metrics/yaw", rr.Scalar(yaw))
+                # rr.log("metrics/roll", rr.Scalar(roll))
 
                 # Log nod detection status
-                nod_detected = abs(pitch) > 10  # Threshold of 10 degrees
-                rr.log("metrics/nod_detected", rr.Scalar(1.0 if nod_detected else 0.0))
+                # nod_detected = False  # TODO: Implement in separate PR
+                # rr.log("metrics/nods_detected", ...todo...)
 
                 # Log text annotation
-                text = f"Frame: {frame_number}\nPitch: {pitch:.1f}°  Yaw: {yaw:.1f}°  Roll: {roll:.1f}°"
-                if nod_detected:
-                    text += "\nNOD DETECTED"
+                text = f"Frame: {frame_number}\nPitch: {pitch:.1f}°  Yaw: N/A  Roll: N/A"
+                # TODO: Replace with new logic after nod detection is implemented
+                # if nod_detected:
+                #     text += "\nNOD DETECTED"
 
                 rr.log("text/status", rr.TextLog(text))
 
