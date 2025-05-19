@@ -13,15 +13,24 @@ Example:
     Or programmatically:
     ```python
     from nod_detector.pipeline import VideoProcessingPipeline
+    from nod_detector.nod_detection import NodDetector
 
+    # Process video with the pipeline
     pipeline = VideoProcessingPipeline()
     results = pipeline.process("path/to/video.mp4")
+
+    # Or use the NodDetector directly
+    detector = NodDetector(fps=30)
+    # Update with pitch angles from your source
+    detected, direction = detector.update(pitch_angle, frame_number)
     ```
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
+
+from nod_detector.nod_detection import NodDetector  # noqa: F401
 
 # Import key components to make them available at package level
 from nod_detector.pipeline import VideoProcessingPipeline  # noqa: F401
 
-__all__ = ["VideoProcessingPipeline"]
+__all__ = ["VideoProcessingPipeline", "NodDetector"]
