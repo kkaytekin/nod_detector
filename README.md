@@ -162,6 +162,33 @@ pytest --cov=src/nod_detector --cov-report=term-missing
 - `tests/integration/`: Integration tests that verify the system as a whole
 - `tests/data/`: Test data and fixtures
 
+## 📚 Documentation
+
+Comprehensive documentation is available on [GitHub Pages](https://kkaytekin.github.io/nod_detector/). The documentation includes:
+
+- Installation and setup instructions
+- Usage examples and API reference
+- Development guidelines
+- Troubleshooting
+
+### Building Documentation Locally
+
+To build the documentation locally:
+
+```bash
+# Install documentation dependencies
+pip install -e ".[docs]"
+
+# Build the documentation
+cd docs
+make html
+
+# Open the built documentation in your browser
+start _build/html/index.html  # On Windows
+# On macOS: open _build/html/index.html
+# On Linux: xdg-open _build/html/index.html
+```
+
 ### 🎥 Visualization with Rerun
 
 The nod detector supports interactive visualization using [Rerun](https://rerun.io/), a visualization tool for computer vision and robotics. When enabled with the `--visualize` flag, the pipeline will launch a Rerun viewer that shows:

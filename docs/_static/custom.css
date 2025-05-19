@@ -1,0 +1,67 @@
+/* Custom CSS for Nod Detector documentation */
+
+/* Make content area wider */
+.wy-nav-content {
+    max-width: 1200px !important;
+}
+
+/* Style code blocks */
+.rst-content code.literal {
+    color: #e74c3c;
+    background-color: #f8f8f8;
+    border: 1px solid #e1e4e5;
+    border-radius: 3px;
+    padding: 2px 5px;
+    font-size: 0.9em;
+}
+
+/* Style note and warning boxes */
+.note, .warning, .tip, .important {
+    margin: 20px 0;
+    padding: 12px 20px 12px 50px;
+    border-left: 4px solid;
+    position: relative;
+    border-radius: 0 4px 4px 0;
+}
+
+.note {
+    background-color: #e7f2fa;
+    border-left-color: #6ab0de;
+}
+
+.warning {
+    background-color: #ffedcc;
+    border-left-color: #f0b37e;
+}
+
+/* Style tables */
+.wy-table-responsive table td, .wy-table-responsive table th {
+    white-space: normal;
+}
+
+/* Style method/class headers */
+.sig.sig-object {
+    background: #f8f8f8;
+    border-left: 3px solid #ccc;
+    padding: 10px 15px;
+    margin: 20px 0;
+}
+
+/* Style parameter lists */
+.field-list dt {
+    font-weight: bold;
+    margin-top: 10px;
+}
+
+.field-list dd {
+    margin-left: 20px;
+    margin-bottom: 10px;
+}
+
+/* Style method signatures */
+.sig.sig-object.py {
+    background: #f8f8f8;
+    border-left: 3px solid #ccc;
+    padding: 10px 15px;
+    margin: 20px 0;
+}
