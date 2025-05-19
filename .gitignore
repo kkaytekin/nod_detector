@@ -8,9 +8,6 @@ __pycache__/
 *.pyd
 .Python
 
-# Allow .nojekyll in docs/_build/html for GitHub Pages
-!docs/_build/html/.nojekyll
-
 # Distribution / packaging
 build/
 dist/
