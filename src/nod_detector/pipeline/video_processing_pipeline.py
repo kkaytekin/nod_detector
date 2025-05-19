@@ -15,6 +15,7 @@ import numpy.typing as npt
 import rerun as rr
 
 from ..mediapipe_components import MediaPipeDetector
+from ..nod_detection import NodDetector
 from .base_pipeline import BasePipeline
 
 logger = logging.getLogger(__name__)
@@ -88,8 +89,15 @@ class VideoProcessingPipeline(BasePipeline["ProcessingResults"]):
             static_image_mode=False,
             refine_face_landmarks=True,
         )
+        # Initialize NodDetector with configuration from config or use defaults
+        self.nod_detector = NodDetector(
+            min_amplitude=float(self.config.get("min_amplitude", 5.0)),
+            min_peak_distance=int(self.config.get("min_peak_distance", 30)),
+            fps=int(self.config.get("fps", 30)),
+        )
         self.output_dir = Path(self.config.get("output_dir", "output"))
         self.output_dir.mkdir(parents=True, exist_ok=True)
+        self.nod_count = 0
 
     def _visualize_frame(
         self,
@@ -112,9 +120,6 @@ class VideoProcessingPipeline(BasePipeline["ProcessingResults"]):
         # Set time for rerun visualization
         rr.set_time_seconds("time", frame_number / video_info["fps"])
         rr.set_time_sequence("frame", frame_number)
-
-        # Log the frame to rerun
-        rr.log("world/camera/image", rr.Image(frame))
 
         # Create a copy of the frame to draw on
         if frame is None or frame.size == 0:
@@ -177,7 +182,10 @@ class VideoProcessingPipeline(BasePipeline["ProcessingResults"]):
                         start = pose_landmarks[str(start_idx)]
                         end = pose_landmarks[str(end_idx)]
                         if start and end:
-                            start_pt = (int(start["x"] * width), int(start["y"] * height))
+                            start_pt = (
+                                int(start["x"] * width),
+                                int(start["y"] * height),
+                            )
                             end_pt = (int(end["x"] * width), int(end["y"] * height))
                             cv2.line(frame_copy, start_pt, end_pt, (0, 255, 0), 2)
 
@@ -247,7 +255,10 @@ class VideoProcessingPipeline(BasePipeline["ProcessingResults"]):
                         start = face_landmarks[str(start_idx)]
                         end = face_landmarks[str(end_idx)]
                         if start and end:
-                            start_pt = (int(start["x"] * width), int(start["y"] * height))
+                            start_pt = (
+                                int(start["x"] * width),
+                                int(start["y"] * height),
+                            )
                             end_pt = (int(end["x"] * width), int(end["y"] * height))
                             cv2.line(frame_copy, start_pt, end_pt, (0, 0, 255), 1)
 
@@ -260,21 +271,54 @@ class VideoProcessingPipeline(BasePipeline["ProcessingResults"]):
 
         # Add status text with background for better visibility
         if "nod_detected" in results:
-            status = "NOD DETECTED" if results["nod_detected"] else "No nod detected"
-            color = (0, 0, 255) if results["nod_detected"] else (0, 255, 0)
+            nod_direction = results.get("nod_direction", "")
+            if results["nod_detected"]:
+                direction = nod_direction.upper() if isinstance(nod_direction, str) else ""
+                status = f"NOD DETECTED: {direction}"
+                color = (0, 0, 255)  # Red for detected nod
+            else:
+                status = "No nod detected"
+                color = (0, 255, 0)  # Green for no nod
+
+            # Add nod count to status
+            status = f"Nods: {self.nod_count} | {status}"
 
             # Add background for status text
             text_size = cv2.getTextSize(f"Status: {status}", cv2.FONT_HERSHEY_SIMPLEX, 1, 2)[0]
             cv2.rectangle(frame_copy, (10, 10), (30 + text_size[0], 50), (0, 0, 0), -1)
 
             # Add status text
-            cv2.putText(frame_copy, f"Status: {status}", (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2, cv2.LINE_AA)
+            cv2.putText(
+                frame_copy,
+                f"Status: {status}",
+                (20, 40),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                1,
+                color,
+                2,
+                cv2.LINE_AA,
+            )
 
         # Add frame info with background
         info_text = f"Frame: {frame_number}/{video_info['total_frames']} | FPS: {video_info['fps']:.1f}"
         text_size = cv2.getTextSize(info_text, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 1)[0]
-        cv2.rectangle(frame_copy, (10, frame_copy.shape[0] - 30), (20 + text_size[0], frame_copy.shape[0] - 10), (0, 0, 0), -1)
-        cv2.putText(frame_copy, info_text, (20, frame_copy.shape[0] - 15), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1, cv2.LINE_AA)
+        cv2.rectangle(
+            frame_copy,
+            (10, frame_copy.shape[0] - 30),
+            (20 + text_size[0], frame_copy.shape[0] - 10),
+            (0, 0, 0),
+            -1,
+        )
+        cv2.putText(
+            frame_copy,
+            info_text,
+            (20, frame_copy.shape[0] - 15),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.6,
+            (255, 255, 255),
+            1,
+            cv2.LINE_AA,
+        )
 
     def _process(self, input_data: str, **kwargs: Any) -> ProcessingResults:
         """Process the input video and detect nodding behavior.
@@ -307,9 +351,6 @@ class VideoProcessingPipeline(BasePipeline["ProcessingResults"]):
                 )
                 logger.info("Rerun visualization initialized. Open the Rerun viewer to see the results.")
 
-                # Set up a simple layout
-                rr.log("world", rr.ViewCoordinates.RIGHT_HAND_Y_UP, static=True)
-
             except Exception as e:
                 logger.error(f"Failed to initialize Rerun: {e}")
                 visualize = False  # Disable visualization if initialization fails
@@ -337,18 +378,12 @@ class VideoProcessingPipeline(BasePipeline["ProcessingResults"]):
         logger.info(f"Resolution: {frame_width}x{frame_height} at {fps:.2f} FPS")
         logger.info(f"Total frames: {total_frames}")
 
-        # Initialize Rerun visualization if enabled
-        if visualize:
-            # Log video info
-            rr.log("world/video_info", rr.TextLog(f"Processing video: {video_path}"))
-            rr.log("world/video_info", rr.TextLog(f"Resolution: {frame_width}x{frame_height} at {fps:.2f} FPS"))
-            rr.log("world/video_info", rr.TextLog(f"Total frames: {total_frames}"))
-
-            # Log a simple text indicator
-            rr.log("world/status", rr.TextLog("Nod Detection Active"))
-
         # Prepare the final results dictionary with proper typing
-        results: ProcessingResultsDict = {"video_info": video_info, "frame_results": [], "detections": []}
+        results: ProcessingResultsDict = {
+            "video_info": video_info,
+            "frame_results": [],
+            "detections": [],
+        }
 
         # Set max frames based on debug mode
         max_frames = 10 if debug else float("inf")
@@ -370,11 +405,22 @@ class VideoProcessingPipeline(BasePipeline["ProcessingResults"]):
                     frame_result["frame_number"] = frame_count
                     frame_result["timestamp"] = frame_count / fps
 
-                    # Update nod_detected based on head pose (simple threshold for now)
-                    head_pose = frame_result.get("head_pose")
-                    if head_pose and isinstance(head_pose, dict):
+                    # Update nod detection using NodDetector
+                    head_pose = frame_result.get("head_pose", {})
+                    if isinstance(head_pose, dict):
                         pitch = head_pose.get("pitch", 0.0) if isinstance(head_pose.get("pitch"), (int, float)) else 0.0
-                        frame_result["nod_detected"] = abs(pitch) > 10  # 10 degree threshold
+
+                        # Update nod detector with current pitch and frame number
+                        nod_detected, nod_direction = self.nod_detector.update(pitch, frame_count)
+
+                        # Update frame result with nod detection info
+                        frame_result["nod_detected"] = nod_detected
+                        frame_result["nod_direction"] = nod_direction if nod_detected else ""
+
+                        # Update nod count
+                        if nod_detected:
+                            self.nod_count += 1
+                            logger.info(f"Nod detected at frame {frame_count}: {nod_direction}")
 
                     # Create typed frame result
                     frame_result_typed = FrameResult(
@@ -498,31 +544,62 @@ class VideoProcessingPipeline(BasePipeline["ProcessingResults"]):
             head_pose = frame_result.get("head_pose")
             if head_pose:
                 pitch = head_pose.get("pitch", 0.0)
-                # yaw = head_pose.get("yaw", 0.0)
-                # roll = head_pose.get("roll", 0.0)
 
                 # Log head pose data as scalars
-                rr.log("metrics/pitch", rr.Scalar(pitch))
-                # Do not log yaw and roll as they are not used
-                # rr.log("metrics/yaw", rr.Scalar(yaw))
-                # rr.log("metrics/roll", rr.Scalar(roll))
+                rr.log("metrics/pitch_abs", rr.Scalar(pitch))
 
-                # Log nod detection status
-                # nod_detected = False  # TODO: Implement in separate PR
-                # rr.log("metrics/nods_detected", ...todo...)
+                # Log nod detection status and count
+                nod_detected = frame_result.get("nod_detected", False)
+                nod_direction = self.nod_detector.get_last_direction()
+                nod_count = self.nod_detector.get_nod_count()
 
-                # Log text annotation
-                text = f"Frame: {frame_number}\nPitch: {pitch:.1f}°  Yaw: N/A  Roll: N/A"
-                # TODO: Replace with new logic after nod detection is implemented
-                # if nod_detected:
-                #     text += "\nNOD DETECTED"
+                # Update the nod count display
+                rr.log("metrics/nod_count", rr.Scalar(nod_count))
 
-                rr.log("text/status", rr.TextLog(text))
+                # Log nod detection event
+                if nod_detected:
+                    rr.log(
+                        "text/nod_detected",
+                        rr.TextLog(f"Nod detected: {nod_direction}"),
+                    )
+
+                # Create a more informative status text
+                status_text = f"Frame: {frame_number}\n" f"Pitch: {pitch:.1f}°\n" f"Nod Count: {nod_count}"
+
+                # Add detection status
+                if nod_detected and nod_direction:
+                    status_text += f"\nNOD DETECTED: {nod_direction.upper()}"
+
+                # Add current direction
+                if hasattr(self.nod_detector, "current_direction"):
+                    current_direction = self.nod_detector.current_direction
+                    if current_direction:
+                        status_text += f"\nDirection: {current_direction}"
+
+                # Log the status text
+                rr.log("text/status", rr.TextLog(status_text))
+
+                # Log pitch history for visualization
+                if hasattr(self.nod_detector, "pitch_history") and self.nod_detector.pitch_history:
+                    # Create time points for the pitch history
+                    history_length = len(self.nod_detector.pitch_history)
+                    time_points = list(range(max(0, history_length - 100), history_length))
+                    pitch_values = self.nod_detector.pitch_history[-len(time_points) :]
+
+                    # Log as a time series
+                    for t, p in zip(time_points, pitch_values):
+                        rr.set_time_sequence("pitch_history", t)
+                        rr.log("metrics/pitch_window", rr.Scalar(p))
 
         except Exception as e:
             logger.warning(f"Error in visualization: {e}")
+        finally:
+            # Always try to clean up OpenCV windows
+            cv2.destroyAllWindows()
 
     def reset(self) -> None:
         """Reset the pipeline state."""
         super().reset()
         self.frame_count = 0
+        self.nod_count = 0
+        self.nod_detector.reset()
