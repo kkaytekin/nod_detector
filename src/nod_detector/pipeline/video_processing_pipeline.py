@@ -15,6 +15,7 @@ import numpy.typing as npt
 import rerun as rr
 
 from ..mediapipe_components import MediaPipeDetector
+from ..nod_detection import NodDetector
 from .base_pipeline import BasePipeline
 
 logger = logging.getLogger(__name__)
@@ -88,8 +89,15 @@ class VideoProcessingPipeline(BasePipeline["ProcessingResults"]):
             static_image_mode=False,
             refine_face_landmarks=True,
         )
+        # Initialize NodDetector with configuration from config or use defaults
+        self.nod_detector = NodDetector(
+            min_amplitude=float(self.config.get("min_amplitude", 5.0)),
+            min_peak_distance=int(self.config.get("min_peak_distance", 30)),
+            fps=int(self.config.get("fps", 30)),
+        )
         self.output_dir = Path(self.config.get("output_dir", "output"))
         self.output_dir.mkdir(parents=True, exist_ok=True)
+        self.nod_count = 0
 
     def _visualize_frame(
         self,
@@ -260,8 +268,17 @@ class VideoProcessingPipeline(BasePipeline["ProcessingResults"]):
 
         # Add status text with background for better visibility
         if "nod_detected" in results:
-            status = "NOD DETECTED" if results["nod_detected"] else "No nod detected"
-            color = (0, 0, 255) if results["nod_detected"] else (0, 255, 0)
+            nod_direction = results.get("nod_direction", "")
+            if results["nod_detected"]:
+                direction = nod_direction.upper() if isinstance(nod_direction, str) else ""
+                status = f"NOD DETECTED: {direction}"
+                color = (0, 0, 255)  # Red for detected nod
+            else:
+                status = "No nod detected"
+                color = (0, 255, 0)  # Green for no nod
+
+            # Add nod count to status
+            status = f"Nods: {self.nod_count} | {status}"
 
             # Add background for status text
             text_size = cv2.getTextSize(f"Status: {status}", cv2.FONT_HERSHEY_SIMPLEX, 1, 2)[0]
@@ -370,11 +387,22 @@ class VideoProcessingPipeline(BasePipeline["ProcessingResults"]):
                     frame_result["frame_number"] = frame_count
                     frame_result["timestamp"] = frame_count / fps
 
-                    # Update nod_detected based on head pose (simple threshold for now)
-                    head_pose = frame_result.get("head_pose")
-                    if head_pose and isinstance(head_pose, dict):
+                    # Update nod detection using NodDetector
+                    head_pose = frame_result.get("head_pose", {})
+                    if isinstance(head_pose, dict):
                         pitch = head_pose.get("pitch", 0.0) if isinstance(head_pose.get("pitch"), (int, float)) else 0.0
-                        frame_result["nod_detected"] = abs(pitch) > 10  # 10 degree threshold
+
+                        # Update nod detector with current pitch and frame number
+                        nod_detected, nod_direction = self.nod_detector.update(pitch, frame_count)
+
+                        # Update frame result with nod detection info
+                        frame_result["nod_detected"] = nod_detected
+                        frame_result["nod_direction"] = nod_direction if nod_detected else ""
+
+                        # Update nod count
+                        if nod_detected:
+                            self.nod_count += 1
+                            logger.info(f"Nod detected at frame {frame_count}: {nod_direction}")
 
                     # Create typed frame result
                     frame_result_typed = FrameResult(
@@ -526,3 +554,5 @@ class VideoProcessingPipeline(BasePipeline["ProcessingResults"]):
         """Reset the pipeline state."""
         super().reset()
         self.frame_count = 0
+        self.nod_count = 0
+        self.nod_detector.reset()
