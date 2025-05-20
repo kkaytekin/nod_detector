@@ -31,6 +31,7 @@ pip install -e .
 
 ## 🎬 Quick Start
 
+### Using Python (Local Installation)
 Process a video file with a single command:
 ```bash
 # Install dependencies
@@ -46,11 +47,79 @@ python -m nod_detector --input path/to/input_video.mp4 --visualize
 python -m nod_detector --input path/to/input_video.mp4 --output results.json
 ```
 
+### 🐳 Using Docker
+
+Docker provides a consistent environment that works across all platforms, ensuring the application runs the same way everywhere.
+
+#### Prerequisites
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed and running
+- At least 4GB of RAM allocated to Docker (recommended)
+
+#### Quick Start
+
+1. **Build the Docker image** (only needed once or after code changes):
+   ```bash
+   docker compose build
+   ```
+
+2. **Process a video file**:
+   ```bash
+   # Copy your video to the input directory
+   cp path/to/your/video.mp4 data/input/
+   
+   # Process the video with visualization
+   docker compose run --rm nod-detector python -m nod_detector /data/input/video.mp4 -o /data/output/result.mp4 -v
+   ```
+   
+   The processed video will be saved to `data/output/` on your host machine.
+
+#### Common Commands
+
+- **View help**:
+  ```bash
+  docker compose run --rm nod-detector python -m nod_detector --help
+  ```
+
+- **Process a video** (replace placeholders as needed):
+  ```bash
+  docker compose run --rm nod-detector python -m nod_detector \
+    /data/input/input.mp4 \
+    -o /data/output/result.mp4 \
+    -v  # Enable visualization
+  ```
+
+- **Debug mode** (process only first 10 frames):
+  ```bash
+  docker compose run --rm nod-detector python -m nod_detector /data/input/input.mp4 -d
+  ```
+
+#### Development Workflow
+
+For active development with automatic code reloading:
+
+```bash
+# Start the container in detached mode
+docker compose up -d
+
+# Get a shell in the container
+docker compose exec nod-detector bash
+
+# Inside the container, you can run:
+python -m nod_detector /data/input/video.mp4 -v
+
+# To stop the container when done
+docker compose down
+```
+
+#### Notes
+- The `data/input` and `data/output` directories are mounted as volumes, so files persist between container runs
+- The container includes all necessary system dependencies for MediaPipe and OpenCV
+- Use `--rm` flag to automatically clean up the container after it exits
+
 ### Expected Output
 - Processed video file with visualizations
 - Interactive visualization using rerun.io (when --visualize flag is used)
 - Console output showing processing statistics
-- (Future) JSON file with detailed nod detection data
 
 ## 📁 Project Structure
 ```

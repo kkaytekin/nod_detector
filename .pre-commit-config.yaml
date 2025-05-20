@@ -41,3 +41,26 @@ repos:
     - id: check-merge-conflict
     - id: debug-statements
     - id: requirements-txt-fixer
+
+# Docker-related hooks
+-   repo: https://github.com/hadolint/hadolint
+    rev: v2.12.0  # Latest stable version
+    hooks:
+    - id: hadolint
+      name: Lint Dockerfile
+      description: Lint Dockerfile for security and best practices
+      entry: hadolint --ignore DL3008 --ignore DL3009 --ignore DL3013 --ignore DL3018 --ignore DL3019 --ignore DL4000 --ignore DL4001
+      language: docker_image
+      types: [dockerfile]
+
+-   repo: https://github.com/compose-schema/compose-schema
+    rev: v0.1.0  # Latest stable version
+    hooks:
+    - id: validate-docker-compose
+      name: Validate docker-compose.yml
+      description: Validate docker-compose.yml files
+      entry: docker-compose config -q
+      language: docker
+      files: 'docker-compose\.ya?ml$'
+      pass_filenames: false
+      always_run: true
