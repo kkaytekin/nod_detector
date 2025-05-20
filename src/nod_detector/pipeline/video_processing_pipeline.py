@@ -424,6 +424,9 @@ class VideoProcessingPipeline(BasePipeline["ProcessingResults"]):
                         frame_result["nod_direction"] = nod_direction if nod_detected else ""
                         frame_result["pitch"] = pitch  # Ensure pitch is in frame_result
 
+                        # Save frame results to JSON file
+                        self._save_frame_results(frame_result, frame_count)
+
                         # Update nod count
                         if nod_detected:
                             self.nod_count += 1

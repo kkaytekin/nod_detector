@@ -156,8 +156,6 @@ Each `frame_XXXXXX.json` file contains the following structure:
 The `<input_video_name>_processed.mp4` file contains the original video with the following visualizations overlaid:
 - 3D pose landmarks (body keypoints)
 - Face mesh (if face detection is enabled)
-- TODO: Head pose axes showing orientation
-- TODO: Nod detection indicators when a nod is detected
 
 ### Output Directory Contents
 
@@ -274,6 +272,8 @@ start _build/html/index.html  # On Windows
 Found a bug or have a feature request? Please open an issue on our [GitHub Issues](https://github.com/kkaytekin/nod_detector/issues) page.
 
 ### Open Tasks
+- [ ] Optimize memory usage to enable long video processing
+- [ ] Improve the algorithm to work on multi-person videos
 - [ ] Improve nod detection algorithm, also consider yaw and roll angles for better nod detection
 - [ ] Implement light-weight version with downscaled video resolution
 - [ ] Review documentation
