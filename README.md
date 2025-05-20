@@ -33,18 +33,16 @@ pip install -e .
 
 ### Using Python (Local Installation)
 Process a video file with a single command:
-```bash
-# Install dependencies
-pip install -r requirements.txt
 
+```bash
 # Show all available options
 python -m nod_detector --help
 
 # Process a video file with visualization
 python -m nod_detector --input path/to/input_video.mp4 --visualize
 
-# Save results to JSON
-python -m nod_detector --input path/to/input_video.mp4 --output results.json
+# Save results to a specific directory
+python -m nod_detector --input path/to/input_video.mp4 --output_dir results/
 ```
 
 ### 🐳 Using Docker
@@ -66,11 +64,11 @@ Docker provides a consistent environment that works across all platforms, ensuri
    ```bash
    # Copy your video to the input directory
    cp path/to/your/video.mp4 data/input/
-   
+
    # Process the video with visualization
    docker compose run --rm nod-detector python -m nod_detector /data/input/video.mp4 -o /data/output/result.mp4 -v
    ```
-   
+
    The processed video will be saved to `data/output/` on your host machine.
 
 #### Common Commands
@@ -93,33 +91,96 @@ Docker provides a consistent environment that works across all platforms, ensuri
   docker compose run --rm nod-detector python -m nod_detector /data/input/input.mp4 -d
   ```
 
-#### Development Workflow
-
-For active development with automatic code reloading:
-
-```bash
-# Start the container in detached mode
-docker compose up -d
-
-# Get a shell in the container
-docker compose exec nod-detector bash
-
-# Inside the container, you can run:
-python -m nod_detector /data/input/video.mp4 -v
-
-# To stop the container when done
-docker compose down
-```
-
 #### Notes
 - The `data/input` and `data/output` directories are mounted as volumes, so files persist between container runs
 - The container includes all necessary system dependencies for MediaPipe and OpenCV
 - Use `--rm` flag to automatically clean up the container after it exits
 
 ### Expected Output
-- Processed video file with visualizations
-- Interactive visualization using rerun.io (when --visualize flag is used)
+- Processed video file with visualizations (`output_video.mp4`)
+- Interactive visualization using rerun.io (when `--visualize` flag is used)
 - Console output showing processing statistics
+- JSON files with detailed nod detection data (see [Output Data Structure](#output-data-structure) below)
+
+## 📊 Output Data Structure
+
+The nod detector generates individual JSON files for each processed frame along with a processed video file. The output directory structure is as follows:
+
+```
+output/
+├── <input_video_name>_processed.mp4  # Processed video with visualizations
+├── frame_000000.json                 # Frame 0 data
+├── frame_000001.json                 # Frame 1 data
+├── frame_000002.json                 # Frame 2 data
+└── ...                              # And so on for each frame
+```
+
+### Frame Data Format
+
+Each `frame_XXXXXX.json` file contains the following structure:
+
+```json
+{
+  "frame_number": 0,                    // Frame number (0-based index)
+  "timestamp": 0.0,                     // Timestamp in seconds
+  "detections": [],                      // List of detections (if any)
+  "head_pose": {                        // Head pose information
+    "pitch": -51.42551400204901,        // Head pitch angle in degrees
+    "yaw": 0.0,                         // Head yaw angle in degrees
+    "roll": 0.0                         // Head roll angle in degrees
+  },
+  "pose_landmarks": {                  // 3D pose landmarks
+    "0": {                              // Landmark ID (0-32 for body pose)
+      "x": 0.4661392569541931,         // X coordinate (normalized)
+      "y": 0.28261396288871765,        // Y coordinate (normalized)
+      "z": -0.39765465259552,          // Z coordinate (normalized)
+      "visibility": 0.990135908126831   // Visibility score [0, 1]
+    },
+    // ... more landmarks (0-32 for body pose)
+  },
+  "face_landmarks": {                  // 3D face landmarks (if detected)
+    "0": {                             // Landmark ID (0-467 for face)
+      "x": 0.5,                        // X coordinate (normalized)
+      "y": 0.3,                        // Y coordinate (normalized)
+      "z": -0.4,                       // Z coordinate (normalized)
+      "visibility": 0.99               // Visibility score [0, 1]
+    },
+    // ... more face landmarks (0-467)
+  },
+  "nod_detected": false                // Whether a nod was detected in this frame
+}
+```
+
+### Processed Video
+
+The `<input_video_name>_processed.mp4` file contains the original video with the following visualizations overlaid:
+- 3D pose landmarks (body keypoints)
+- Face mesh (if face detection is enabled)
+- TODO: Head pose axes showing orientation
+- TODO: Nod detection indicators when a nod is detected
+
+### Output Directory Contents
+
+- **`frame_XXXXXX.json` files**: Individual JSON files for each frame containing:
+  - Frame metadata (number, timestamp)
+  - Head pose angles (pitch, yaw, roll)
+  - 3D pose landmarks (body keypoints)
+  - 3D face landmarks (if detected)
+  - Nod detection status
+
+- **`<input_video_name>_processed.mp4`**: The processed video with visualizations overlaid
+
+### Notes
+- All coordinates are normalized to [0, 1] range where (0,0) is the top-left corner and (1,1) is the bottom-right corner of the frame
+- Negative Z values indicate points that are closer to the camera
+- Visibility scores indicate the confidence of each landmark detection [0, 1]
+- Head pose angles are in degrees, where:
+  - Positive pitch: Looking up
+  - Negative pitch: Looking down
+  - Positive yaw: Turning right
+  - Negative yaw: Turning left
+  - Positive roll: Tilt right
+  - Negative roll: Tilt left
 
 ## 📁 Project Structure
 ```
@@ -127,13 +188,21 @@ nod_detector/
 ├── src/
 │   └── nod_detector/     # Main package
 │       ├── pipeline/     # Video processing pipeline
+│       │   └── video_processing_pipeline.py  # Main processing logic
 │       ├── mediapipe_components.py  # MediaPipe integration
+│       ├── nod_detection.py  # Nod detection algorithm
+│       ├── output_utils.py   # Output handling and visualization
 │       ├── main.py       # Command-line interface
 │       └── __init__.py   # Package definition
 ├── tests/                # Test suite
 │   ├── unit/            # Unit tests
-│   └── integration/      # Integration tests
-└── examples/             # Example scripts
+│   ├── integration/     # Integration tests
+│   └── data/            # Test video files
+├── examples/            # Example scripts
+├── Dockerfile           # Docker configuration
+├── requirements.txt     # Python dependencies
+├── setup.py            # Package configuration
+└── pyproject.toml      # Build system configuration
 ```
 
 ## 🔍 Features
@@ -145,11 +214,30 @@ nod_detector/
 - **JSON Export**: Saves detection results in a structured JSON format
 - **Modular Design**: Easy to extend with custom detection algorithms
 
-## 🔍 Assumptions
-- The input video contains clear frontal or near-frontal views of faces
-- Lighting conditions are sufficient for face detection
-- The subject's head is visible for most of the video duration
-- The subject is within 1-2 meters from the camera for optimal detection
+## 🔍 Assumptions and Limitations
+- The input video should contain clear frontal or near-frontal views of faces
+- Lighting conditions should be sufficient for face detection
+- The subject's head should be visible for most of the video duration
+- Optimal detection occurs when the subject is within 1-2 meters from the camera
+- The system works best with videos that have a minimum resolution of 640x480
+- Frame rates between 24-60 FPS are recommended for best results
+- Multiple faces in the frame may affect detection accuracy
+- Performance may vary with different lighting conditions and video qualities
+
+
+### 🎥 Visualization with Rerun
+
+The nod detector supports interactive visualization using [Rerun](https://rerun.io/), a visualization tool for computer vision and robotics. When enabled with the `--visualize` flag, the pipeline will launch a Rerun viewer that shows:
+
+- The input video stream
+
+### Using the Rerun Viewer
+
+1. The Rerun viewer will open automatically when you run the detector with the `--visualize` flag.
+2. Use the timeline at the bottom to scrub through frames.
+3. Toggle different visualizations using the right sidebar.
+4. The 3D view shows the estimated head pose in 3D space.
+
 
 ## 🤝 Contributing
 

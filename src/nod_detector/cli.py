@@ -9,7 +9,6 @@ from typing import Optional
 import typer
 from rich.console import Console
 from rich.logging import RichHandler
-from rich.progress import Progress, SpinnerColumn, TextColumn
 
 from nod_detector.pipeline.video_processing_pipeline import VideoProcessingPipeline
 
@@ -75,9 +74,15 @@ def setup_logging(level: str = "INFO") -> None:
     """Set up logging with the specified log level.
 
     Args:
-        level: Logging level as a string (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+        level: Logging level as a string (DEBUG, INFO, WARNING, ERROR, CRITICAL) or a typer.Option object
     """
-    log_level = getattr(logging, level.upper(), logging.INFO)
+    # Handle case where level is a typer.Option object
+    if hasattr(level, "value"):
+        level = level.value
+    elif not isinstance(level, str):
+        level = "INFO"
+
+    log_level = getattr(logging, str(level).upper(), logging.INFO)
 
     # Clear any existing handlers
     for handler in logging.root.handlers[:]:
@@ -126,8 +131,8 @@ def setup_logging(level: str = "INFO") -> None:
 
 
 @app.command()
-def main(
-    input: Path = DEFAULT_INPUT_ARG,
+def process(
+    input_file: Path = DEFAULT_INPUT_ARG,
     output: Optional[Path] = DEFAULT_OUTPUT_OPTION,
     visualize: bool = DEFAULT_VISUALIZE_OPTION,
     debug: bool = DEFAULT_DEBUG_OPTION,
@@ -136,63 +141,41 @@ def main(
     """Process a video file to detect nodding behavior.
 
     Args:
-        input: Path to the input video file
+        input_file: Path to the input video file
         output: Path to save the output video (optional)
         visualize: Enable visualization of the processing
         debug: Run in debug mode (process only first 10 frames)
         log_level: Set the logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
     """
-    # Set up logging
     setup_logging(level=log_level)
-    logger = logging.getLogger(__name__)
-
-    # Log the start of processing
-    logger.info("=" * 80)
-    logger.info(f"Starting video processing: {input}")
-    logger.info(f"Output: {output}")
-    logger.info(f"Visualization: {visualize}")
-    logger.info(f"Debug mode: {debug}")
-    logger.info(f"Log level: {log_level}")
-    logger.info("-" * 80)
-
-    # Validate input file
-    input_path = validate_input_file(input)
-
-    # Ensure output path
-    output_path = ensure_output_path(input_path, output)
-
-    # Initialize the pipeline
-    pipeline = VideoProcessingPipeline()
-    logger.info("Video processing pipeline initialized")
+    logger.info(f"Starting nod detection on video: {input_file}")
 
     try:
-        with Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            transient=True,
-        ) as progress:
-            task = progress.add_task("Processing video...", total=None)
+        # Validate input file
+        input_path = validate_input_file(input_file)
 
-            # Process the video with visualization and debug flags
-            result = pipeline.process(str(input_path), visualize=visualize, debug=debug)
+        # Set up output path
+        output_path = ensure_output_path(input_path, output)
 
-            # Update progress
-            progress.update(task, completed=1, description="Processing complete!")
+        # Initialize the pipeline
+        pipeline = VideoProcessingPipeline()
+        logger.info("Video processing pipeline initialized")
 
-            # Show results with simple ASCII output to avoid encoding issues
-            console.print("\n[green]Processing complete![/]")
-            console.print(f"\nResults: {result}")
-            console.print(f"\nOutput saved to: {output_path}")
+        # Process the video with visualization and debug flags
+        result = pipeline.process(input_data=str(input_path), visualize=visualize, debug=debug, output_path=str(output_path))
 
-            return result
+        logger.info(f"Processing complete. Results saved to: {output_path}")
+        console.print("\n[green]Processing complete![/]")
+        console.print(f"\nOutput saved to: {output_path}")
+
+        return result
 
     except Exception as e:
         console.print(f"[red]Error: {str(e)}[/]")
         sys.exit(1)
 
 
-# The main function is now the entry point for the CLI
-
+# The process function is the entry point for the CLI
 
 if __name__ == "__main__":
-    main()
+    app()

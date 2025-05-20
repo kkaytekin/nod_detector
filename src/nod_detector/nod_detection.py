@@ -1,6 +1,6 @@
 """Nod detection module for detecting head nods in video frames."""
 
-from typing import List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 
 class NodDetector:
@@ -35,6 +35,13 @@ class NodDetector:
         self.current_direction: Optional[str] = None
         self.nod_count: int = 0
         self.last_detection_direction: Optional[str] = None
+
+        # Nod event tracking
+        self.current_nod_start_frame: Optional[int] = None
+        self.current_nod_start_pitch: Optional[float] = None
+        self.current_nod_peak_pitch: Optional[float] = None
+        self.current_nod_direction: Optional[str] = None
+        self.nod_events: List[Dict[str, Any]] = []
 
     def _calculate_velocity(self, current_pitch: float, previous_pitch: float) -> float:
         """Calculate the velocity between two consecutive pitch values."""
@@ -138,10 +145,28 @@ class NodDetector:
             self.velocity_history.append(velocity)
 
             # Update the current direction
-            if velocity > 0:
+            if velocity > 0.1:  # Small threshold to avoid noise
                 self.current_direction = "up"
-            elif velocity < 0:
-                self.last_direction = "down"
+            elif velocity < -0.1:  # Small threshold to avoid noise
+                self.current_direction = "down"
+
+            # Track nod start and peak
+            if self.current_direction != self.last_direction and self.last_direction is not None:
+                # Direction changed, potentially starting a new nod
+                if self.current_nod_start_frame is None:
+                    self.current_nod_start_frame = frame_number - 1
+                    self.current_nod_start_pitch = self.pitch_history[-2]
+                    self.current_nod_peak_pitch = self.pitch_history[-2]
+                    self.current_nod_direction = self.current_direction
+
+            # Update peak pitch during nod
+            if self.current_nod_start_frame is not None:
+                if (self.current_nod_direction == "down" and pitch < self.current_nod_peak_pitch) or (
+                    self.current_nod_direction == "up" and pitch > self.current_nod_peak_pitch
+                ):
+                    self.current_nod_peak_pitch = pitch
+
+            self.last_direction = self.current_direction
         else:
             self.velocity_history.append(0)
 
@@ -151,6 +176,32 @@ class NodDetector:
             self.last_nod_frame = frame_number
             self.nod_count += 1
             self.last_detection_direction = direction
+
+            # Finalize the current nod event
+            if self.current_nod_start_frame is not None:
+                duration_frames = frame_number - self.current_nod_start_frame
+                duration_seconds = duration_frames / self.fps if self.fps > 0 else 0
+                amplitude = abs(self.current_nod_peak_pitch - self.current_nod_start_pitch)
+
+                nod_event = {
+                    "frame_number": self.current_nod_start_frame,
+                    "timestamp": self.current_nod_start_frame / self.fps if self.fps > 0 else 0,
+                    "direction": direction,
+                    "start_pitch": self.current_nod_start_pitch,
+                    "peak_pitch": self.current_nod_peak_pitch,
+                    "end_pitch": pitch,
+                    "amplitude": amplitude,
+                    "duration_frames": duration_frames,
+                    "duration_seconds": duration_seconds,
+                }
+                self.nod_events.append(nod_event)
+
+                # Reset nod tracking
+                self.current_nod_start_frame = None
+                self.current_nod_start_pitch = None
+                self.current_nod_peak_pitch = None
+                self.current_nod_direction = None
+
             return True, direction
 
         # Keep history size manageable
@@ -160,6 +211,14 @@ class NodDetector:
             self.velocity_history.pop(0)
 
         return False, ""
+
+    def get_nod_events(self) -> List[Dict[str, Any]]:
+        """Get a list of all detected nod events.
+
+        Returns:
+            List of dictionaries, each containing information about a detected nod
+        """
+        return self.nod_events
 
     def get_nod_count(self) -> int:
         """Get the total number of nods detected."""

@@ -16,6 +16,7 @@ import rerun as rr
 
 from ..mediapipe_components import MediaPipeDetector
 from ..nod_detection import NodDetector
+from ..output_utils import save_processed_video
 from .base_pipeline import BasePipeline
 
 logger = logging.getLogger(__name__)
@@ -98,6 +99,8 @@ class VideoProcessingPipeline(BasePipeline["ProcessingResults"]):
         self.output_dir = Path(self.config.get("output_dir", "output"))
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.nod_count = 0
+        self.last_nod_frame = -10  # Track the last frame where a nod was detected
+        self.nod_display_frames = 5  # Number of frames to show nod detection
 
     def _visualize_frame(
         self,
@@ -385,6 +388,9 @@ class VideoProcessingPipeline(BasePipeline["ProcessingResults"]):
             "detections": [],
         }
 
+        # List to store processed frames for video output
+        processed_frames: List[npt.NDArray[np.uint8]] = []
+
         # Set max frames based on debug mode
         max_frames = 10 if debug else float("inf")
         if debug:
@@ -416,30 +422,93 @@ class VideoProcessingPipeline(BasePipeline["ProcessingResults"]):
                         # Update frame result with nod detection info
                         frame_result["nod_detected"] = nod_detected
                         frame_result["nod_direction"] = nod_direction if nod_detected else ""
+                        frame_result["pitch"] = pitch  # Ensure pitch is in frame_result
 
                         # Update nod count
                         if nod_detected:
                             self.nod_count += 1
                             logger.info(f"Nod detected at frame {frame_count}: {nod_direction}")
 
-                    # Create typed frame result
-                    frame_result_typed = FrameResult(
-                        frame_number=frame_count,
-                        timestamp=frame_result.get("timestamp", 0.0),
-                        detections=frame_result.get("detections", []),
-                        head_pose=frame_result.get("head_pose"),
-                        pose_landmarks=frame_result.get("pose_landmarks"),
-                        face_landmarks=frame_result.get("face_landmarks"),
-                        nod_detected=frame_result.get("nod_detected", False),
+                        # Update last nod frame if nod was detected
+                        if nod_detected:
+                            self.last_nod_frame = frame_count
+
+                    # Create a copy of the frame for visualization
+                    vis_frame = frame.copy()
+
+                    # Convert processed frame to BGR if needed
+                    if len(processed_frame.shape) == 2:  # Grayscale
+                        vis_frame = cv2.cvtColor(processed_frame, cv2.COLOR_GRAY2BGR)
+                    elif processed_frame.shape[2] == 4:  # RGBA
+                        vis_frame = cv2.cvtColor(processed_frame, cv2.COLOR_RGBA2BGR)
+                    elif processed_frame.shape[2] == 1:  # Single channel
+                        vis_frame = cv2.cvtColor(processed_frame, cv2.COLOR_GRAY2BGR)
+                    else:  # Already BGR or other 3-channel format
+                        vis_frame = processed_frame.copy()
+
+                    # Calculate text scale and thickness based on frame dimensions
+                    frame_height = vis_frame.shape[0]
+                    text_scale = frame_height / 500  # Scale text size based on frame height
+                    text_thickness = max(1, int(frame_height / 400))  # Scale thickness
+
+                    # Visualize the frame with landmarks and results
+                    self._visualize_frame(vis_frame, frame_count, video_info, frame_result)
+
+                    # Visualize with Rerun if enabled
+                    if visualize:
+                        self._visualize(vis_frame, frame_result)
+
+                    # Show nod detection indicator for several frames after detection
+                    if frame_count - self.last_nod_frame < self.nod_display_frames:
+                        cv2.putText(
+                            vis_frame,
+                            f"NOD DETECTED: {nod_direction.upper()}",
+                            (int(frame_height * 0.05), int(frame_height * 0.1)),  # Position relative to frame height
+                            cv2.FONT_HERSHEY_SIMPLEX,
+                            text_scale * 1.5,  # Larger text for nod detection
+                            (0, 0, 255),  # Red color
+                            text_thickness * 2,  # Thicker text
+                            cv2.LINE_AA,
+                        )
+
+                    # Add nod count (top left)
+                    cv2.putText(
+                        vis_frame,
+                        f"NOD COUNT: {self.nod_count}",
+                        (int(frame_height * 0.03), int(frame_height * 0.05)),  # Top left
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        text_scale,
+                        (0, 255, 0),  # Green color
+                        text_thickness,
+                        cv2.LINE_AA,
                     )
 
-                    # Add to results and save frame
-                    results["frame_results"].append(frame_result_typed)
-                    self._save_frame_results(frame_result_typed, frame_count)
-                    # Visualize the current frame with results if enabled
-                    if visualize:
-                        self._visualize(processed_frame, frame_result_typed)
+                    # Add frame number (top right)
+                    frame_text = f"FRAME: {frame_count}"
+                    text_size = cv2.getTextSize(frame_text, cv2.FONT_HERSHEY_SIMPLEX, text_scale * 0.8, text_thickness)[0]
+                    text_x = vis_frame.shape[1] - text_size[0] - int(frame_height * 0.03)  # Right align
+                    cv2.putText(
+                        vis_frame,
+                        frame_text,
+                        (text_x, int(frame_height * 0.05)),  # Top right
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        text_scale * 0.8,
+                        (255, 255, 255),  # White color
+                        text_thickness,
+                        cv2.LINE_AA,
+                    )
+
+                    # Ensure frame has correct dimensions
+                    if (vis_frame.shape[1], vis_frame.shape[0]) != (frame_width, frame_height):
+                        vis_frame = cv2.resize(vis_frame, (frame_width, frame_height))
+
+                    # Add the frame to the list for video output
+                    processed_frames.append(vis_frame)
                     frame_count += 1
+
+                    # Log progress every 100 frames
+                    if frame_count % 100 == 0:
+                        logger.info(f"Collected {frame_count}/{total_frames} frames for output video")
 
                     # Log progress every 100 frames
                     if frame_count % 100 == 0:
@@ -456,31 +525,61 @@ class VideoProcessingPipeline(BasePipeline["ProcessingResults"]):
             logger.error(f"Error processing video: {e}")
             raise
         finally:
-            # Release resources
-            if "cap" in locals() and cap.isOpened():
-                cap.release()
+            try:
+                # Release resources
+                if "cap" in locals() and cap.isOpened():
+                    cap.release()
 
-            if visualize:
-                try:
-                    # Add a small delay to ensure all frames are processed
-                    import time
+                # Save the processed video
+                if "processed_frames" in locals() and processed_frames:
+                    output_video_path = self.output_dir / f"{Path(video_path).stem}_processed.mp4"
+                    logger.info(f"Saving processed video to: {output_video_path}")
+                    logger.info(f"Number of frames to save: {len(processed_frames)}")
+                    logger.info(f"Frame size: {frame_width}x{frame_height}")
+                    logger.info(f"FPS: {fps}")
 
-                    time.sleep(1)
+                    # Ensure output directory exists
+                    self.output_dir.mkdir(parents=True, exist_ok=True)
 
-                    # Try to close Rerun if possible
+                    # Save the video
                     try:
-                        if hasattr(rr, "disconnect"):
-                            rr.disconnect()
-                        elif hasattr(rr, "shutdown"):
-                            rr.shutdown()
-                    except Exception as e:
-                        logger.debug(f"Could not properly close Rerun: {e}")
+                        save_processed_video(
+                            frames=processed_frames, output_path=output_video_path, fps=fps, frame_size=(frame_width, frame_height)
+                        )
+                        logger.info(f"Successfully saved processed video to: {output_video_path}")
 
-                except Exception as e:
-                    logger.warning(f"Error during cleanup: {e}")
-                finally:
-                    # Always try to clean up OpenCV windows
-                    cv2.destroyAllWindows()
+                        # Verify the output file was created
+                        if output_video_path.exists():
+                            logger.info(f"Output video size: {output_video_path.stat().st_size / (1024 * 1024):.2f} MB")
+                        else:
+                            logger.error("Output video file was not created")
+
+                    except Exception as e:
+                        logger.error(f"Error saving video: {e}", exc_info=True)
+
+                if visualize:
+                    try:
+                        # Add a small delay to ensure all frames are processed
+                        import time
+
+                        time.sleep(1)
+
+                        # Try to close Rerun if possible
+                        try:
+                            if hasattr(rr, "disconnect"):
+                                rr.disconnect()
+                            elif hasattr(rr, "shutdown"):
+                                rr.shutdown()
+                        except Exception as e:
+                            logger.debug(f"Could not properly close Rerun: {e}")
+
+                    except Exception as e:
+                        logger.warning(f"Error during cleanup: {e}")
+                    finally:
+                        # Always try to clean up OpenCV windows
+                        cv2.destroyAllWindows()
+            except Exception as e:
+                logger.error(f"Error during final cleanup: {e}")
 
         # Convert to ProcessingResults type to satisfy the return type
         return ProcessingResults(results)
