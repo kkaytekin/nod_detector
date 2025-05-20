@@ -1,0 +1,730 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>nod_detector.pipeline.video_processing_pipeline &mdash; Nod Detector 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=01f34227"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            Nod Detector
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../quickstart.html">Quick Start</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">User Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../usage.html">User Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../examples.html">Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../api.html">API Reference</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Development</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../changelog.html">Changelog</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">Nod Detector</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">nod_detector.pipeline.video_processing_pipeline</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for nod_detector.pipeline.video_processing_pipeline</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Video processing pipeline for the nod detection system.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">TypedDict</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">cv2</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy.typing</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">npt</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">rerun</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">rr</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">..mediapipe_components</span><span class="w"> </span><span class="kn">import</span> <span class="n">MediaPipeDetector</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..nod_detection</span><span class="w"> </span><span class="kn">import</span> <span class="n">NodDetector</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.base_pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">BasePipeline</span>
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">FrameResult</span><span class="p">(</span><span class="n">TypedDict</span><span class="p">,</span> <span class="n">total</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Type definition for frame processing results.&quot;&quot;&quot;</span>
+
+    <span class="n">frame_number</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">timestamp</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="n">detections</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Any</span><span class="p">]</span>
+    <span class="n">head_pose</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]</span>
+    <span class="n">pose_landmarks</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span>
+    <span class="n">face_landmarks</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span>
+    <span class="n">nod_detected</span><span class="p">:</span> <span class="nb">bool</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">VideoInfo</span><span class="p">(</span><span class="n">TypedDict</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Type definition for video information.&quot;&quot;&quot;</span>
+
+    <span class="n">path</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">fps</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="n">frame_width</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">frame_height</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">total_frames</span><span class="p">:</span> <span class="nb">int</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">ProcessingResults</span><span class="p">(</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Type definition for processing results.</span>
+
+<span class="sd">    This extends Dict[str, Any] to satisfy the type constraint in BasePipeline.</span>
+<span class="sd">    The actual structure is defined by the TypedDict below.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">pass</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">ProcessingResultsDict</span><span class="p">(</span><span class="n">TypedDict</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Typed dictionary for processing results.&quot;&quot;&quot;</span>
+
+    <span class="n">video_info</span><span class="p">:</span> <span class="n">VideoInfo</span>
+    <span class="n">frame_results</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">FrameResult</span><span class="p">]</span>
+    <span class="n">detections</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Any</span><span class="p">]</span>
+
+
+<div class="viewcode-block" id="VideoProcessingPipeline">
+<a class="viewcode-back" href="../../../api.html#nod_detector.pipeline.VideoProcessingPipeline">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">VideoProcessingPipeline</span><span class="p">(</span><span class="n">BasePipeline</span><span class="p">[</span><span class="s2">&quot;ProcessingResults&quot;</span><span class="p">]):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Pipeline for processing video frames for nod detection.</span>
+
+<span class="sd">    This pipeline handles:</span>
+<span class="sd">    - Video frame extraction</span>
+<span class="sd">    - Frame preprocessing</span>
+<span class="sd">    - Person detection (to be implemented)</span>
+<span class="sd">    - Head pose estimation (to be implemented)</span>
+<span class="sd">    - Nod detection (to be implemented)</span>
+<span class="sd">    - Result visualization using rerun.io</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="VideoProcessingPipeline.__init__">
+<a class="viewcode-back" href="../../../api.html#nod_detector.pipeline.VideoProcessingPipeline.__init__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Initialize the video processing pipeline.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            config: Configuration dictionary for the pipeline.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">config</span> <span class="o">=</span> <span class="n">config</span> <span class="ow">or</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">frame_count</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">detector</span> <span class="o">=</span> <span class="n">MediaPipeDetector</span><span class="p">(</span>
+            <span class="n">min_detection_confidence</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
+            <span class="n">min_tracking_confidence</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
+            <span class="n">static_image_mode</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="n">refine_face_landmarks</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="c1"># Initialize NodDetector with configuration from config or use defaults</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">nod_detector</span> <span class="o">=</span> <span class="n">NodDetector</span><span class="p">(</span>
+            <span class="n">min_amplitude</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;min_amplitude&quot;</span><span class="p">,</span> <span class="mf">5.0</span><span class="p">)),</span>
+            <span class="n">min_peak_distance</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;min_peak_distance&quot;</span><span class="p">,</span> <span class="mi">30</span><span class="p">)),</span>
+            <span class="n">fps</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;fps&quot;</span><span class="p">,</span> <span class="mi">30</span><span class="p">)),</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">output_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;output_dir&quot;</span><span class="p">,</span> <span class="s2">&quot;output&quot;</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">output_dir</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">nod_count</span> <span class="o">=</span> <span class="mi">0</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_visualize_frame</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">frame</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">uint8</span><span class="p">],</span>  <span class="c1"># type: ignore[type-arg]  # OpenCV frame type</span>
+        <span class="n">frame_number</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">video_info</span><span class="p">:</span> <span class="n">VideoInfo</span><span class="p">,</span>
+        <span class="n">results</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">FrameResult</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Visualize the frame with keypoints and results.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            frame: The video frame to visualize as a numpy array of uint8.</span>
+<span class="sd">            frame_number: Current frame number.</span>
+<span class="sd">            video_info: Dictionary containing video metadata.</span>
+<span class="sd">            results: Optional frame processing results.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">results</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="c1"># Set time for rerun visualization</span>
+        <span class="n">rr</span><span class="o">.</span><span class="n">set_time_seconds</span><span class="p">(</span><span class="s2">&quot;time&quot;</span><span class="p">,</span> <span class="n">frame_number</span> <span class="o">/</span> <span class="n">video_info</span><span class="p">[</span><span class="s2">&quot;fps&quot;</span><span class="p">])</span>
+        <span class="n">rr</span><span class="o">.</span><span class="n">set_time_sequence</span><span class="p">(</span><span class="s2">&quot;frame&quot;</span><span class="p">,</span> <span class="n">frame_number</span><span class="p">)</span>
+
+        <span class="c1"># Create a copy of the frame to draw on</span>
+        <span class="k">if</span> <span class="n">frame</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">frame</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="n">frame_copy</span> <span class="o">=</span> <span class="n">frame</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">height</span><span class="p">,</span> <span class="n">width</span> <span class="o">=</span> <span class="n">frame_copy</span><span class="o">.</span><span class="n">shape</span><span class="p">[:</span><span class="mi">2</span><span class="p">]</span>
+
+        <span class="c1"># Draw pose landmarks if available</span>
+        <span class="k">if</span> <span class="s2">&quot;pose_landmarks&quot;</span> <span class="ow">in</span> <span class="n">results</span> <span class="ow">and</span> <span class="n">results</span><span class="p">[</span><span class="s2">&quot;pose_landmarks&quot;</span><span class="p">]:</span>
+            <span class="n">pose_landmarks</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s2">&quot;pose_landmarks&quot;</span><span class="p">]</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">pose_landmarks</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+                <span class="c1"># Draw connections between keypoints</span>
+                <span class="n">connections</span> <span class="o">=</span> <span class="p">[</span>
+                    <span class="c1"># Face outline</span>
+                    <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span>
+                    <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>
+                    <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span>
+                    <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">),</span>
+                    <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span>
+                    <span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span>
+                    <span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="mi">7</span><span class="p">),</span>
+                    <span class="p">(</span><span class="mi">7</span><span class="p">,</span> <span class="mi">8</span><span class="p">),</span>
+                    <span class="c1"># Torso</span>
+                    <span class="p">(</span><span class="mi">11</span><span class="p">,</span> <span class="mi">12</span><span class="p">),</span>
+                    <span class="p">(</span><span class="mi">11</span><span class="p">,</span> <span class="mi">23</span><span class="p">),</span>
+                    <span class="p">(</span><span class="mi">23</span><span class="p">,</span> <span class="mi">24</span><span class="p">),</span>
+                    <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">24</span><span class="p">),</span>
+                    <span class="c1"># Left arm</span>
+                    <span class="p">(</span><span class="mi">11</span><span class="p">,</span> <span class="mi">13</span><span class="p">),</span>
+                    <span class="p">(</span><span class="mi">13</span><span class="p">,</span> <span class="mi">15</span><span class="p">),</span>
+                    <span class="p">(</span><span class="mi">15</span><span class="p">,</span> <span class="mi">17</span><span class="p">),</span>
+                    <span class="p">(</span><span class="mi">15</span><span class="p">,</span> <span class="mi">19</span><span class="p">),</span>
+                    <span class="p">(</span><span class="mi">15</span><span class="p">,</span> <span class="mi">21</span><span class="p">),</span>
+                    <span class="p">(</span><span class="mi">17</span><span class="p">,</span> <span class="mi">19</span><span class="p">),</span>
+                    <span class="c1"># Right arm</span>
+                    <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">14</span><span class="p">),</span>
+                    <span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">16</span><span class="p">),</span>
+                    <span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">18</span><span class="p">),</span>
+                    <span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">20</span><span class="p">),</span>
+                    <span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">22</span><span class="p">),</span>
+                    <span class="p">(</span><span class="mi">18</span><span class="p">,</span> <span class="mi">20</span><span class="p">),</span>
+                    <span class="c1"># Left leg</span>
+                    <span class="p">(</span><span class="mi">23</span><span class="p">,</span> <span class="mi">25</span><span class="p">),</span>
+                    <span class="p">(</span><span class="mi">25</span><span class="p">,</span> <span class="mi">27</span><span class="p">),</span>
+                    <span class="p">(</span><span class="mi">27</span><span class="p">,</span> <span class="mi">29</span><span class="p">),</span>
+                    <span class="p">(</span><span class="mi">29</span><span class="p">,</span> <span class="mi">31</span><span class="p">),</span>
+                    <span class="p">(</span><span class="mi">27</span><span class="p">,</span> <span class="mi">31</span><span class="p">),</span>
+                    <span class="c1"># Right leg</span>
+                    <span class="p">(</span><span class="mi">24</span><span class="p">,</span> <span class="mi">26</span><span class="p">),</span>
+                    <span class="p">(</span><span class="mi">26</span><span class="p">,</span> <span class="mi">28</span><span class="p">),</span>
+                    <span class="p">(</span><span class="mi">28</span><span class="p">,</span> <span class="mi">30</span><span class="p">),</span>
+                    <span class="p">(</span><span class="mi">28</span><span class="p">,</span> <span class="mi">32</span><span class="p">),</span>
+                    <span class="p">(</span><span class="mi">30</span><span class="p">,</span> <span class="mi">32</span><span class="p">),</span>
+                <span class="p">]</span>
+
+                <span class="c1"># Draw connections</span>
+                <span class="k">for</span> <span class="n">start_idx</span><span class="p">,</span> <span class="n">end_idx</span> <span class="ow">in</span> <span class="n">connections</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="nb">str</span><span class="p">(</span><span class="n">start_idx</span><span class="p">)</span> <span class="ow">in</span> <span class="n">pose_landmarks</span> <span class="ow">and</span> <span class="nb">str</span><span class="p">(</span><span class="n">end_idx</span><span class="p">)</span> <span class="ow">in</span> <span class="n">pose_landmarks</span><span class="p">:</span>
+                        <span class="n">start</span> <span class="o">=</span> <span class="n">pose_landmarks</span><span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">start_idx</span><span class="p">)]</span>
+                        <span class="n">end</span> <span class="o">=</span> <span class="n">pose_landmarks</span><span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">end_idx</span><span class="p">)]</span>
+                        <span class="k">if</span> <span class="n">start</span> <span class="ow">and</span> <span class="n">end</span><span class="p">:</span>
+                            <span class="n">start_pt</span> <span class="o">=</span> <span class="p">(</span>
+                                <span class="nb">int</span><span class="p">(</span><span class="n">start</span><span class="p">[</span><span class="s2">&quot;x&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="n">width</span><span class="p">),</span>
+                                <span class="nb">int</span><span class="p">(</span><span class="n">start</span><span class="p">[</span><span class="s2">&quot;y&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="n">height</span><span class="p">),</span>
+                            <span class="p">)</span>
+                            <span class="n">end_pt</span> <span class="o">=</span> <span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">end</span><span class="p">[</span><span class="s2">&quot;x&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="n">width</span><span class="p">),</span> <span class="nb">int</span><span class="p">(</span><span class="n">end</span><span class="p">[</span><span class="s2">&quot;y&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="n">height</span><span class="p">))</span>
+                            <span class="n">cv2</span><span class="o">.</span><span class="n">line</span><span class="p">(</span><span class="n">frame_copy</span><span class="p">,</span> <span class="n">start_pt</span><span class="p">,</span> <span class="n">end_pt</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="mi">2</span><span class="p">)</span>
+
+                <span class="c1"># Draw keypoints</span>
+                <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">landmark</span> <span class="ow">in</span> <span class="n">pose_landmarks</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">landmark</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+                        <span class="c1"># Convert normalized coordinates to pixel coordinates</span>
+                        <span class="n">x</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">landmark</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">*</span> <span class="n">width</span><span class="p">)</span>
+                        <span class="n">y</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">landmark</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">*</span> <span class="n">height</span><span class="p">)</span>
+
+                        <span class="c1"># Draw keypoints with different colors for different body parts</span>
+                        <span class="n">color</span> <span class="o">=</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>  <span class="c1"># Green for body</span>
+                        <span class="k">if</span> <span class="nb">int</span><span class="p">(</span><span class="n">idx</span><span class="p">)</span> <span class="ow">in</span> <span class="p">[</span><span class="mi">11</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="mi">13</span><span class="p">,</span> <span class="mi">14</span><span class="p">,</span> <span class="mi">15</span><span class="p">,</span> <span class="mi">16</span><span class="p">]:</span>  <span class="c1"># Shoulders and elbows</span>
+                            <span class="n">color</span> <span class="o">=</span> <span class="p">(</span><span class="mi">255</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>  <span class="c1"># Cyan for arms</span>
+                        <span class="k">elif</span> <span class="nb">int</span><span class="p">(</span><span class="n">idx</span><span class="p">)</span> <span class="ow">in</span> <span class="p">[</span><span class="mi">23</span><span class="p">,</span> <span class="mi">24</span><span class="p">,</span> <span class="mi">25</span><span class="p">,</span> <span class="mi">26</span><span class="p">,</span> <span class="mi">27</span><span class="p">,</span> <span class="mi">28</span><span class="p">]:</span>  <span class="c1"># Hips and knees</span>
+                            <span class="n">color</span> <span class="o">=</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">255</span><span class="p">)</span>  <span class="c1"># Yellow for legs</span>
+
+                        <span class="n">cv2</span><span class="o">.</span><span class="n">circle</span><span class="p">(</span><span class="n">frame_copy</span><span class="p">,</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">),</span> <span class="mi">5</span><span class="p">,</span> <span class="n">color</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+
+        <span class="c1"># Draw face landmarks if available</span>
+        <span class="k">if</span> <span class="s2">&quot;face_landmarks&quot;</span> <span class="ow">in</span> <span class="n">results</span> <span class="ow">and</span> <span class="n">results</span><span class="p">[</span><span class="s2">&quot;face_landmarks&quot;</span><span class="p">]:</span>
+            <span class="n">face_landmarks</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s2">&quot;face_landmarks&quot;</span><span class="p">]</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">face_landmarks</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+                <span class="c1"># Draw face mesh</span>
+                <span class="n">connections</span> <span class="o">=</span> <span class="p">[</span>
+                    <span class="c1"># Face oval</span>
+                    <span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">338</span><span class="p">),</span>
+                    <span class="p">(</span><span class="mi">338</span><span class="p">,</span> <span class="mi">297</span><span class="p">),</span>
+                    <span class="p">(</span><span class="mi">297</span><span class="p">,</span> <span class="mi">332</span><span class="p">),</span>
+                    <span class="p">(</span><span class="mi">332</span><span class="p">,</span> <span class="mi">284</span><span class="p">),</span>
+                    <span class="p">(</span><span class="mi">284</span><span class="p">,</span> <span class="mi">251</span><span class="p">),</span>
+                    <span class="p">(</span><span class="mi">251</span><span class="p">,</span> <span class="mi">389</span><span class="p">),</span>
+                    <span class="p">(</span><span class="mi">389</span><span class="p">,</span> <span class="mi">356</span><span class="p">),</span>
+                    <span class="p">(</span><span class="mi">356</span><span class="p">,</span> <span class="mi">454</span><span class="p">),</span>
+                    <span class="p">(</span><span class="mi">454</span><span class="p">,</span> <span class="mi">323</span><span class="p">),</span>
+                    <span class="p">(</span><span class="mi">323</span><span class="p">,</span> <span class="mi">361</span><span class="p">),</span>
+                    <span class="p">(</span><span class="mi">361</span><span class="p">,</span> <span class="mi">288</span><span class="p">),</span>
+                    <span class="p">(</span><span class="mi">288</span><span class="p">,</span> <span class="mi">397</span><span class="p">),</span>
+                    <span class="p">(</span><span class="mi">397</span><span class="p">,</span> <span class="mi">365</span><span class="p">),</span>
+                    <span class="p">(</span><span class="mi">365</span><span class="p">,</span> <span class="mi">379</span><span class="p">),</span>
+                    <span class="p">(</span><span class="mi">379</span><span class="p">,</span> <span class="mi">378</span><span class="p">),</span>
+                    <span class="p">(</span><span class="mi">378</span><span class="p">,</span> <span class="mi">400</span><span class="p">),</span>
+                    <span class="p">(</span><span class="mi">400</span><span class="p">,</span> <span class="mi">377</span><span class="p">),</span>
+                    <span class="p">(</span><span class="mi">377</span><span class="p">,</span> <span class="mi">152</span><span class="p">),</span>
+                    <span class="p">(</span><span class="mi">152</span><span class="p">,</span> <span class="mi">148</span><span class="p">),</span>
+                    <span class="p">(</span><span class="mi">148</span><span class="p">,</span> <span class="mi">176</span><span class="p">),</span>
+                    <span class="p">(</span><span class="mi">176</span><span class="p">,</span> <span class="mi">149</span><span class="p">),</span>
+                    <span class="p">(</span><span class="mi">149</span><span class="p">,</span> <span class="mi">150</span><span class="p">),</span>
+                    <span class="p">(</span><span class="mi">150</span><span class="p">,</span> <span class="mi">136</span><span class="p">),</span>
+                    <span class="p">(</span><span class="mi">136</span><span class="p">,</span> <span class="mi">172</span><span class="p">),</span>
+                    <span class="p">(</span><span class="mi">172</span><span class="p">,</span> <span class="mi">58</span><span class="p">),</span>
+                    <span class="p">(</span><span class="mi">58</span><span class="p">,</span> <span class="mi">132</span><span class="p">),</span>
+                    <span class="p">(</span><span class="mi">132</span><span class="p">,</span> <span class="mi">93</span><span class="p">),</span>
+                    <span class="p">(</span><span class="mi">93</span><span class="p">,</span> <span class="mi">234</span><span class="p">),</span>
+                    <span class="p">(</span><span class="mi">234</span><span class="p">,</span> <span class="mi">127</span><span class="p">),</span>
+                    <span class="p">(</span><span class="mi">127</span><span class="p">,</span> <span class="mi">162</span><span class="p">),</span>
+                    <span class="p">(</span><span class="mi">162</span><span class="p">,</span> <span class="mi">21</span><span class="p">),</span>
+                    <span class="p">(</span><span class="mi">21</span><span class="p">,</span> <span class="mi">54</span><span class="p">),</span>
+                    <span class="p">(</span><span class="mi">54</span><span class="p">,</span> <span class="mi">103</span><span class="p">),</span>
+                    <span class="p">(</span><span class="mi">103</span><span class="p">,</span> <span class="mi">67</span><span class="p">),</span>
+                    <span class="p">(</span><span class="mi">67</span><span class="p">,</span> <span class="mi">109</span><span class="p">),</span>
+                    <span class="p">(</span><span class="mi">109</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span>
+                <span class="p">]</span>
+
+                <span class="k">for</span> <span class="n">start_idx</span><span class="p">,</span> <span class="n">end_idx</span> <span class="ow">in</span> <span class="n">connections</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="nb">str</span><span class="p">(</span><span class="n">start_idx</span><span class="p">)</span> <span class="ow">in</span> <span class="n">face_landmarks</span> <span class="ow">and</span> <span class="nb">str</span><span class="p">(</span><span class="n">end_idx</span><span class="p">)</span> <span class="ow">in</span> <span class="n">face_landmarks</span><span class="p">:</span>
+                        <span class="n">start</span> <span class="o">=</span> <span class="n">face_landmarks</span><span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">start_idx</span><span class="p">)]</span>
+                        <span class="n">end</span> <span class="o">=</span> <span class="n">face_landmarks</span><span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">end_idx</span><span class="p">)]</span>
+                        <span class="k">if</span> <span class="n">start</span> <span class="ow">and</span> <span class="n">end</span><span class="p">:</span>
+                            <span class="n">start_pt</span> <span class="o">=</span> <span class="p">(</span>
+                                <span class="nb">int</span><span class="p">(</span><span class="n">start</span><span class="p">[</span><span class="s2">&quot;x&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="n">width</span><span class="p">),</span>
+                                <span class="nb">int</span><span class="p">(</span><span class="n">start</span><span class="p">[</span><span class="s2">&quot;y&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="n">height</span><span class="p">),</span>
+                            <span class="p">)</span>
+                            <span class="n">end_pt</span> <span class="o">=</span> <span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">end</span><span class="p">[</span><span class="s2">&quot;x&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="n">width</span><span class="p">),</span> <span class="nb">int</span><span class="p">(</span><span class="n">end</span><span class="p">[</span><span class="s2">&quot;y&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="n">height</span><span class="p">))</span>
+                            <span class="n">cv2</span><span class="o">.</span><span class="n">line</span><span class="p">(</span><span class="n">frame_copy</span><span class="p">,</span> <span class="n">start_pt</span><span class="p">,</span> <span class="n">end_pt</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">255</span><span class="p">),</span> <span class="mi">1</span><span class="p">)</span>
+
+                <span class="c1"># Draw face keypoints</span>
+                <span class="k">for</span> <span class="n">_landmark</span> <span class="ow">in</span> <span class="n">face_landmarks</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+                    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">_landmark</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+                        <span class="n">x</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">_landmark</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">*</span> <span class="n">width</span><span class="p">)</span>
+                        <span class="n">y</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">_landmark</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">*</span> <span class="n">height</span><span class="p">)</span>
+                        <span class="n">cv2</span><span class="o">.</span><span class="n">circle</span><span class="p">(</span><span class="n">frame_copy</span><span class="p">,</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">),</span> <span class="mi">1</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">255</span><span class="p">),</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+
+        <span class="c1"># Add status text with background for better visibility</span>
+        <span class="k">if</span> <span class="s2">&quot;nod_detected&quot;</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
+            <span class="n">nod_direction</span> <span class="o">=</span> <span class="n">results</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;nod_direction&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">results</span><span class="p">[</span><span class="s2">&quot;nod_detected&quot;</span><span class="p">]:</span>
+                <span class="n">direction</span> <span class="o">=</span> <span class="n">nod_direction</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">nod_direction</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span>
+                <span class="n">status</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;NOD DETECTED: </span><span class="si">{</span><span class="n">direction</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="n">color</span> <span class="o">=</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">255</span><span class="p">)</span>  <span class="c1"># Red for detected nod</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">status</span> <span class="o">=</span> <span class="s2">&quot;No nod detected&quot;</span>
+                <span class="n">color</span> <span class="o">=</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>  <span class="c1"># Green for no nod</span>
+
+            <span class="c1"># Add nod count to status</span>
+            <span class="n">status</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;Nods: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">nod_count</span><span class="si">}</span><span class="s2"> | </span><span class="si">{</span><span class="n">status</span><span class="si">}</span><span class="s2">&quot;</span>
+
+            <span class="c1"># Add background for status text</span>
+            <span class="n">text_size</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">getTextSize</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Status: </span><span class="si">{</span><span class="n">status</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">cv2</span><span class="o">.</span><span class="n">FONT_HERSHEY_SIMPLEX</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">cv2</span><span class="o">.</span><span class="n">rectangle</span><span class="p">(</span><span class="n">frame_copy</span><span class="p">,</span> <span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span> <span class="p">(</span><span class="mi">30</span> <span class="o">+</span> <span class="n">text_size</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">50</span><span class="p">),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+
+            <span class="c1"># Add status text</span>
+            <span class="n">cv2</span><span class="o">.</span><span class="n">putText</span><span class="p">(</span>
+                <span class="n">frame_copy</span><span class="p">,</span>
+                <span class="sa">f</span><span class="s2">&quot;Status: </span><span class="si">{</span><span class="n">status</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+                <span class="p">(</span><span class="mi">20</span><span class="p">,</span> <span class="mi">40</span><span class="p">),</span>
+                <span class="n">cv2</span><span class="o">.</span><span class="n">FONT_HERSHEY_SIMPLEX</span><span class="p">,</span>
+                <span class="mi">1</span><span class="p">,</span>
+                <span class="n">color</span><span class="p">,</span>
+                <span class="mi">2</span><span class="p">,</span>
+                <span class="n">cv2</span><span class="o">.</span><span class="n">LINE_AA</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Add frame info with background</span>
+        <span class="n">info_text</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;Frame: </span><span class="si">{</span><span class="n">frame_number</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">video_info</span><span class="p">[</span><span class="s1">&#39;total_frames&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2"> | FPS: </span><span class="si">{</span><span class="n">video_info</span><span class="p">[</span><span class="s1">&#39;fps&#39;</span><span class="p">]</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="n">text_size</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">getTextSize</span><span class="p">(</span><span class="n">info_text</span><span class="p">,</span> <span class="n">cv2</span><span class="o">.</span><span class="n">FONT_HERSHEY_SIMPLEX</span><span class="p">,</span> <span class="mf">0.6</span><span class="p">,</span> <span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">cv2</span><span class="o">.</span><span class="n">rectangle</span><span class="p">(</span>
+            <span class="n">frame_copy</span><span class="p">,</span>
+            <span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="n">frame_copy</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="mi">30</span><span class="p">),</span>
+            <span class="p">(</span><span class="mi">20</span> <span class="o">+</span> <span class="n">text_size</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">frame_copy</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="mi">10</span><span class="p">),</span>
+            <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
+            <span class="o">-</span><span class="mi">1</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">cv2</span><span class="o">.</span><span class="n">putText</span><span class="p">(</span>
+            <span class="n">frame_copy</span><span class="p">,</span>
+            <span class="n">info_text</span><span class="p">,</span>
+            <span class="p">(</span><span class="mi">20</span><span class="p">,</span> <span class="n">frame_copy</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="mi">15</span><span class="p">),</span>
+            <span class="n">cv2</span><span class="o">.</span><span class="n">FONT_HERSHEY_SIMPLEX</span><span class="p">,</span>
+            <span class="mf">0.6</span><span class="p">,</span>
+            <span class="p">(</span><span class="mi">255</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">255</span><span class="p">),</span>
+            <span class="mi">1</span><span class="p">,</span>
+            <span class="n">cv2</span><span class="o">.</span><span class="n">LINE_AA</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_process</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_data</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ProcessingResults</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Process the input video and detect nodding behavior.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            input_data: Path to the input video file.</span>
+<span class="sd">            **kwargs: Additional keyword arguments.</span>
+<span class="sd">                visualize: Whether to visualize the results. Defaults to False.</span>
+<span class="sd">                debug: If True, process only the first 10 frames. Defaults to False.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            ProcessingResults containing the processing results.</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            IOError: If the input video file cannot be opened.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">video_path</span> <span class="o">=</span> <span class="n">input_data</span>
+        <span class="n">visualize</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;visualize&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+        <span class="n">debug</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;debug&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+
+        <span class="c1"># Initialize Rerun for visualization if enabled</span>
+        <span class="k">if</span> <span class="n">visualize</span><span class="p">:</span>
+            <span class="n">video_name</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">video_path</span><span class="p">)</span><span class="o">.</span><span class="n">stem</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="c1"># Initialize Rerun with more detailed settings</span>
+                <span class="n">rr</span><span class="o">.</span><span class="n">init</span><span class="p">(</span>
+                    <span class="n">application_id</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;NodDetector/</span><span class="si">{</span><span class="n">video_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+                    <span class="n">spawn</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                    <span class="n">default_enabled</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Rerun visualization initialized. Open the Rerun viewer to see the results.&quot;</span><span class="p">)</span>
+
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to initialize Rerun: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">visualize</span> <span class="o">=</span> <span class="kc">False</span>  <span class="c1"># Disable visualization if initialization fails</span>
+
+        <span class="c1"># Open the video file</span>
+        <span class="n">cap</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">VideoCapture</span><span class="p">(</span><span class="n">video_path</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">cap</span><span class="o">.</span><span class="n">isOpened</span><span class="p">():</span>
+            <span class="k">raise</span> <span class="ne">IOError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Could not open video file: </span><span class="si">{</span><span class="n">video_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Get video properties</span>
+        <span class="n">fps</span> <span class="o">=</span> <span class="n">cap</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">cv2</span><span class="o">.</span><span class="n">CAP_PROP_FPS</span><span class="p">)</span>
+        <span class="n">frame_width</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">cap</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">cv2</span><span class="o">.</span><span class="n">CAP_PROP_FRAME_WIDTH</span><span class="p">))</span>
+        <span class="n">frame_height</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">cap</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">cv2</span><span class="o">.</span><span class="n">CAP_PROP_FRAME_HEIGHT</span><span class="p">))</span>
+        <span class="n">total_frames</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">cap</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">cv2</span><span class="o">.</span><span class="n">CAP_PROP_FRAME_COUNT</span><span class="p">))</span>
+
+        <span class="n">video_info</span><span class="p">:</span> <span class="n">VideoInfo</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;path&quot;</span><span class="p">:</span> <span class="n">video_path</span><span class="p">,</span>
+            <span class="s2">&quot;fps&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">fps</span><span class="p">),</span>
+            <span class="s2">&quot;frame_width&quot;</span><span class="p">:</span> <span class="n">frame_width</span><span class="p">,</span>
+            <span class="s2">&quot;frame_height&quot;</span><span class="p">:</span> <span class="n">frame_height</span><span class="p">,</span>
+            <span class="s2">&quot;total_frames&quot;</span><span class="p">:</span> <span class="n">total_frames</span><span class="p">,</span>
+        <span class="p">}</span>
+
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Processing video: </span><span class="si">{</span><span class="n">video_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Resolution: </span><span class="si">{</span><span class="n">frame_width</span><span class="si">}</span><span class="s2">x</span><span class="si">{</span><span class="n">frame_height</span><span class="si">}</span><span class="s2"> at </span><span class="si">{</span><span class="n">fps</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> FPS&quot;</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Total frames: </span><span class="si">{</span><span class="n">total_frames</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Prepare the final results dictionary with proper typing</span>
+        <span class="n">results</span><span class="p">:</span> <span class="n">ProcessingResultsDict</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;video_info&quot;</span><span class="p">:</span> <span class="n">video_info</span><span class="p">,</span>
+            <span class="s2">&quot;frame_results&quot;</span><span class="p">:</span> <span class="p">[],</span>
+            <span class="s2">&quot;detections&quot;</span><span class="p">:</span> <span class="p">[],</span>
+        <span class="p">}</span>
+
+        <span class="c1"># Set max frames based on debug mode</span>
+        <span class="n">max_frames</span> <span class="o">=</span> <span class="mi">10</span> <span class="k">if</span> <span class="n">debug</span> <span class="k">else</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">debug</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Debug mode: Processing only first </span><span class="si">{</span><span class="n">max_frames</span><span class="si">}</span><span class="s2"> frames&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Processing entire video&quot;</span><span class="p">)</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">frame_count</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="k">while</span> <span class="n">cap</span><span class="o">.</span><span class="n">isOpened</span><span class="p">()</span> <span class="ow">and</span> <span class="n">frame_count</span> <span class="o">&lt;</span> <span class="n">max_frames</span><span class="p">:</span>
+                <span class="n">ret</span><span class="p">,</span> <span class="n">frame</span> <span class="o">=</span> <span class="n">cap</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">ret</span><span class="p">:</span>
+                    <span class="k">break</span>
+
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="c1"># Process the frame</span>
+                    <span class="n">frame_result</span><span class="p">,</span> <span class="n">processed_frame</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">detector</span><span class="o">.</span><span class="n">process_frame</span><span class="p">(</span><span class="n">frame</span><span class="p">)</span>
+                    <span class="n">frame_result</span><span class="p">[</span><span class="s2">&quot;frame_number&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">frame_count</span>
+                    <span class="n">frame_result</span><span class="p">[</span><span class="s2">&quot;timestamp&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">frame_count</span> <span class="o">/</span> <span class="n">fps</span>
+
+                    <span class="c1"># Update nod detection using NodDetector</span>
+                    <span class="n">head_pose</span> <span class="o">=</span> <span class="n">frame_result</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;head_pose&quot;</span><span class="p">,</span> <span class="p">{})</span>
+                    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">head_pose</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+                        <span class="n">pitch</span> <span class="o">=</span> <span class="n">head_pose</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;pitch&quot;</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">head_pose</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;pitch&quot;</span><span class="p">),</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">))</span> <span class="k">else</span> <span class="mf">0.0</span>
+
+                        <span class="c1"># Update nod detector with current pitch and frame number</span>
+                        <span class="n">nod_detected</span><span class="p">,</span> <span class="n">nod_direction</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nod_detector</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">pitch</span><span class="p">,</span> <span class="n">frame_count</span><span class="p">)</span>
+
+                        <span class="c1"># Update frame result with nod detection info</span>
+                        <span class="n">frame_result</span><span class="p">[</span><span class="s2">&quot;nod_detected&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">nod_detected</span>
+                        <span class="n">frame_result</span><span class="p">[</span><span class="s2">&quot;nod_direction&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">nod_direction</span> <span class="k">if</span> <span class="n">nod_detected</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span>
+
+                        <span class="c1"># Update nod count</span>
+                        <span class="k">if</span> <span class="n">nod_detected</span><span class="p">:</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">nod_count</span> <span class="o">+=</span> <span class="mi">1</span>
+                            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Nod detected at frame </span><span class="si">{</span><span class="n">frame_count</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">nod_direction</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+                    <span class="c1"># Create typed frame result</span>
+                    <span class="n">frame_result_typed</span> <span class="o">=</span> <span class="n">FrameResult</span><span class="p">(</span>
+                        <span class="n">frame_number</span><span class="o">=</span><span class="n">frame_count</span><span class="p">,</span>
+                        <span class="n">timestamp</span><span class="o">=</span><span class="n">frame_result</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;timestamp&quot;</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span>
+                        <span class="n">detections</span><span class="o">=</span><span class="n">frame_result</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;detections&quot;</span><span class="p">,</span> <span class="p">[]),</span>
+                        <span class="n">head_pose</span><span class="o">=</span><span class="n">frame_result</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;head_pose&quot;</span><span class="p">),</span>
+                        <span class="n">pose_landmarks</span><span class="o">=</span><span class="n">frame_result</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;pose_landmarks&quot;</span><span class="p">),</span>
+                        <span class="n">face_landmarks</span><span class="o">=</span><span class="n">frame_result</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;face_landmarks&quot;</span><span class="p">),</span>
+                        <span class="n">nod_detected</span><span class="o">=</span><span class="n">frame_result</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;nod_detected&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">),</span>
+                    <span class="p">)</span>
+
+                    <span class="c1"># Add to results and save frame</span>
+                    <span class="n">results</span><span class="p">[</span><span class="s2">&quot;frame_results&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">frame_result_typed</span><span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_save_frame_results</span><span class="p">(</span><span class="n">frame_result_typed</span><span class="p">,</span> <span class="n">frame_count</span><span class="p">)</span>
+                    <span class="c1"># Visualize the current frame with results if enabled</span>
+                    <span class="k">if</span> <span class="n">visualize</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">_visualize</span><span class="p">(</span><span class="n">processed_frame</span><span class="p">,</span> <span class="n">frame_result_typed</span><span class="p">)</span>
+                    <span class="n">frame_count</span> <span class="o">+=</span> <span class="mi">1</span>
+
+                    <span class="c1"># Log progress every 100 frames</span>
+                    <span class="k">if</span> <span class="n">frame_count</span> <span class="o">%</span> <span class="mi">100</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Processed </span><span class="si">{</span><span class="n">frame_count</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">total_frames</span><span class="si">}</span><span class="s2"> frames&quot;</span><span class="p">)</span>
+
+                <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error processing frame </span><span class="si">{</span><span class="n">frame_count</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                    <span class="c1"># Create an error result for this frame</span>
+                    <span class="n">error_result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_error_result</span><span class="p">(</span><span class="n">frame_count</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
+                    <span class="n">results</span><span class="p">[</span><span class="s2">&quot;frame_results&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">error_result</span><span class="p">)</span>
+                    <span class="k">continue</span>
+
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error processing video: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">raise</span>
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="c1"># Release resources</span>
+            <span class="k">if</span> <span class="s2">&quot;cap&quot;</span> <span class="ow">in</span> <span class="nb">locals</span><span class="p">()</span> <span class="ow">and</span> <span class="n">cap</span><span class="o">.</span><span class="n">isOpened</span><span class="p">():</span>
+                <span class="n">cap</span><span class="o">.</span><span class="n">release</span><span class="p">()</span>
+
+            <span class="k">if</span> <span class="n">visualize</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="c1"># Add a small delay to ensure all frames are processed</span>
+                    <span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+
+                    <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+
+                    <span class="c1"># Try to close Rerun if possible</span>
+                    <span class="k">try</span><span class="p">:</span>
+                        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">rr</span><span class="p">,</span> <span class="s2">&quot;disconnect&quot;</span><span class="p">):</span>
+                            <span class="n">rr</span><span class="o">.</span><span class="n">disconnect</span><span class="p">()</span>
+                        <span class="k">elif</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">rr</span><span class="p">,</span> <span class="s2">&quot;shutdown&quot;</span><span class="p">):</span>
+                            <span class="n">rr</span><span class="o">.</span><span class="n">shutdown</span><span class="p">()</span>
+                    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Could not properly close Rerun: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+                <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error during cleanup: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="k">finally</span><span class="p">:</span>
+                    <span class="c1"># Always try to clean up OpenCV windows</span>
+                    <span class="n">cv2</span><span class="o">.</span><span class="n">destroyAllWindows</span><span class="p">()</span>
+
+        <span class="c1"># Convert to ProcessingResults type to satisfy the return type</span>
+        <span class="k">return</span> <span class="n">ProcessingResults</span><span class="p">(</span><span class="n">results</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_save_frame_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">frame_result</span><span class="p">:</span> <span class="n">FrameResult</span><span class="p">,</span> <span class="n">frame_number</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Save frame results to a JSON file.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            frame_result: Results from frame processing.</span>
+<span class="sd">            frame_number: Current frame number.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">output_file</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;frame_</span><span class="si">{</span><span class="n">frame_number</span><span class="si">:</span><span class="s2">06d</span><span class="si">}</span><span class="s2">.json&quot;</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">output_file</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">frame_result</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_get_error_result</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">frame_number</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">error</span><span class="p">:</span> <span class="ne">Exception</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FrameResult</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create an error result dictionary.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            frame_number: Current frame number</span>
+<span class="sd">            error: The exception that occurred</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            FrameResult with error information</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">error_result</span> <span class="o">=</span> <span class="n">FrameResult</span><span class="p">(</span>
+            <span class="n">frame_number</span><span class="o">=</span><span class="n">frame_number</span><span class="p">,</span>
+            <span class="n">timestamp</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
+            <span class="n">detections</span><span class="o">=</span><span class="p">[],</span>
+            <span class="n">head_pose</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">pose_landmarks</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">face_landmarks</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">nod_detected</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_save_frame_results</span><span class="p">(</span><span class="n">error_result</span><span class="p">,</span> <span class="n">frame_number</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">error_result</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_visualize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">frame</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">uint8</span><span class="p">],</span> <span class="n">frame_result</span><span class="p">:</span> <span class="n">FrameResult</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Visualize the processing results using Rerun.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            frame: Input frame.</span>
+<span class="sd">            frame_result: Results from frame processing.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">frame</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">frame</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="n">frame_number</span> <span class="o">=</span> <span class="n">frame_result</span><span class="p">[</span><span class="s2">&quot;frame_number&quot;</span><span class="p">]</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="c1"># Log the raw frame to Rerun</span>
+            <span class="n">rr</span><span class="o">.</span><span class="n">set_time_sequence</span><span class="p">(</span><span class="s2">&quot;frame&quot;</span><span class="p">,</span> <span class="n">frame_number</span><span class="p">)</span>
+
+            <span class="c1"># Convert from BGR (OpenCV) to RGB (Rerun)</span>
+            <span class="n">rgb_frame</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">cvtColor</span><span class="p">(</span><span class="n">frame</span><span class="p">,</span> <span class="n">cv2</span><span class="o">.</span><span class="n">COLOR_BGR2RGB</span><span class="p">)</span>
+
+            <span class="c1"># Log the RGB frame to Rerun</span>
+            <span class="n">rr</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="s2">&quot;video/rgb&quot;</span><span class="p">,</span> <span class="n">rr</span><span class="o">.</span><span class="n">Image</span><span class="p">(</span><span class="n">rgb_frame</span><span class="p">))</span>
+
+            <span class="c1"># Log head pose information</span>
+            <span class="n">head_pose</span> <span class="o">=</span> <span class="n">frame_result</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;head_pose&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">head_pose</span><span class="p">:</span>
+                <span class="n">pitch</span> <span class="o">=</span> <span class="n">head_pose</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;pitch&quot;</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
+
+                <span class="c1"># Log head pose data as scalars</span>
+                <span class="n">rr</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="s2">&quot;metrics/pitch_abs&quot;</span><span class="p">,</span> <span class="n">rr</span><span class="o">.</span><span class="n">Scalar</span><span class="p">(</span><span class="n">pitch</span><span class="p">))</span>
+
+                <span class="c1"># Log nod detection status and count</span>
+                <span class="n">nod_detected</span> <span class="o">=</span> <span class="n">frame_result</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;nod_detected&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+                <span class="n">nod_direction</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nod_detector</span><span class="o">.</span><span class="n">get_last_direction</span><span class="p">()</span>
+                <span class="n">nod_count</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nod_detector</span><span class="o">.</span><span class="n">get_nod_count</span><span class="p">()</span>
+
+                <span class="c1"># Update the nod count display</span>
+                <span class="n">rr</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="s2">&quot;metrics/nod_count&quot;</span><span class="p">,</span> <span class="n">rr</span><span class="o">.</span><span class="n">Scalar</span><span class="p">(</span><span class="n">nod_count</span><span class="p">))</span>
+
+                <span class="c1"># Log nod detection event</span>
+                <span class="k">if</span> <span class="n">nod_detected</span><span class="p">:</span>
+                    <span class="n">rr</span><span class="o">.</span><span class="n">log</span><span class="p">(</span>
+                        <span class="s2">&quot;text/nod_detected&quot;</span><span class="p">,</span>
+                        <span class="n">rr</span><span class="o">.</span><span class="n">TextLog</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Nod detected: </span><span class="si">{</span><span class="n">nod_direction</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">),</span>
+                    <span class="p">)</span>
+
+                <span class="c1"># Create a more informative status text</span>
+                <span class="n">status_text</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;Frame: </span><span class="si">{</span><span class="n">frame_number</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span> <span class="sa">f</span><span class="s2">&quot;Pitch: </span><span class="si">{</span><span class="n">pitch</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">°</span><span class="se">\n</span><span class="s2">&quot;</span> <span class="sa">f</span><span class="s2">&quot;Nod Count: </span><span class="si">{</span><span class="n">nod_count</span><span class="si">}</span><span class="s2">&quot;</span>
+
+                <span class="c1"># Add detection status</span>
+                <span class="k">if</span> <span class="n">nod_detected</span> <span class="ow">and</span> <span class="n">nod_direction</span><span class="p">:</span>
+                    <span class="n">status_text</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">NOD DETECTED: </span><span class="si">{</span><span class="n">nod_direction</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span>
+
+                <span class="c1"># Add current direction</span>
+                <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nod_detector</span><span class="p">,</span> <span class="s2">&quot;current_direction&quot;</span><span class="p">):</span>
+                    <span class="n">current_direction</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nod_detector</span><span class="o">.</span><span class="n">current_direction</span>
+                    <span class="k">if</span> <span class="n">current_direction</span><span class="p">:</span>
+                        <span class="n">status_text</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Direction: </span><span class="si">{</span><span class="n">current_direction</span><span class="si">}</span><span class="s2">&quot;</span>
+
+                <span class="c1"># Log the status text</span>
+                <span class="n">rr</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="s2">&quot;text/status&quot;</span><span class="p">,</span> <span class="n">rr</span><span class="o">.</span><span class="n">TextLog</span><span class="p">(</span><span class="n">status_text</span><span class="p">))</span>
+
+                <span class="c1"># Log pitch history for visualization</span>
+                <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nod_detector</span><span class="p">,</span> <span class="s2">&quot;pitch_history&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">nod_detector</span><span class="o">.</span><span class="n">pitch_history</span><span class="p">:</span>
+                    <span class="c1"># Create time points for the pitch history</span>
+                    <span class="n">history_length</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nod_detector</span><span class="o">.</span><span class="n">pitch_history</span><span class="p">)</span>
+                    <span class="n">time_points</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">history_length</span> <span class="o">-</span> <span class="mi">100</span><span class="p">),</span> <span class="n">history_length</span><span class="p">))</span>
+                    <span class="n">pitch_values</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nod_detector</span><span class="o">.</span><span class="n">pitch_history</span><span class="p">[</span><span class="o">-</span><span class="nb">len</span><span class="p">(</span><span class="n">time_points</span><span class="p">)</span> <span class="p">:]</span>
+
+                    <span class="c1"># Log as a time series</span>
+                    <span class="k">for</span> <span class="n">t</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">time_points</span><span class="p">,</span> <span class="n">pitch_values</span><span class="p">):</span>
+                        <span class="n">rr</span><span class="o">.</span><span class="n">set_time_sequence</span><span class="p">(</span><span class="s2">&quot;pitch_history&quot;</span><span class="p">,</span> <span class="n">t</span><span class="p">)</span>
+                        <span class="n">rr</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="s2">&quot;metrics/pitch_window&quot;</span><span class="p">,</span> <span class="n">rr</span><span class="o">.</span><span class="n">Scalar</span><span class="p">(</span><span class="n">p</span><span class="p">))</span>
+
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error in visualization: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="c1"># Always try to clean up OpenCV windows</span>
+            <span class="n">cv2</span><span class="o">.</span><span class="n">destroyAllWindows</span><span class="p">()</span>
+
+<div class="viewcode-block" id="VideoProcessingPipeline.reset">
+<a class="viewcode-back" href="../../../api.html#nod_detector.pipeline.VideoProcessingPipeline.reset">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">reset</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Reset the pipeline state.&quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">frame_count</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">nod_count</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">nod_detector</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span></div>
+</div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Kagan Kucukaytekin.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
