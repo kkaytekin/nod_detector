@@ -515,6 +515,9 @@
                         <span class="n">frame_result</span><span class="p">[</span><span class="s2">&quot;nod_direction&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">nod_direction</span> <span class="k">if</span> <span class="n">nod_detected</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span>
                         <span class="n">frame_result</span><span class="p">[</span><span class="s2">&quot;pitch&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pitch</span>  <span class="c1"># Ensure pitch is in frame_result</span>
 
+                        <span class="c1"># Save frame results to JSON file</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">_save_frame_results</span><span class="p">(</span><span class="n">frame_result</span><span class="p">,</span> <span class="n">frame_count</span><span class="p">)</span>
+
                         <span class="c1"># Update nod count</span>
                         <span class="k">if</span> <span class="n">nod_detected</span><span class="p">:</span>
                             <span class="bp">self</span><span class="o">.</span><span class="n">nod_count</span> <span class="o">+=</span> <span class="mi">1</span>
