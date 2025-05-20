@@ -1,15 +1,71 @@
-# Nod Detector 👋
+# 🤖 Nod Detector
 
 A Python package for detecting nodding behavior in videos using MediaPipe. This tool analyzes head movements and identifies nodding patterns by tracking 3D face and pose landmarks in video files.
 
 ![Nod Detector](media/hero.gif)
 
+
+## ✨ Features
+
+- **Visualization with [Rerun](https://rerun.io/)** - When enabled with the `--visualize` flag, the pipeline will launch a Rerun viewer that shows:
+
+    - The input video stream
+    - Per-frame pitch angle of the head
+    - Smoothed pitch angle of the head
+    - Nod detection status
+    - Nod counter
+
+
+- **Command-line Interface** - Easy to use with helpful command-line options
+
+  <img src="media/help_results.png" width="700" style="object-fit: contain;" />
+
+- **Sphinx Documentation** - Professional and comprehensive [documentation](https://kkaytekin.github.io/nod_detector/)
+
+  <img src="media/sphinx_docs.png" width="700" style="object-fit: contain;" />
+
+### 💯 Quality Assurance
+
+- **Pre-commit Hooks** - Ensuring code quality before each commit
+
+  <img src="media/pre_commit_hooks.png" width="700" style="object-fit: contain;" />
+
+
+- **Unit Testing with Pytest** - Robust test coverage for reliable code
+
+  <img src="media/pytest_unit_tests.png" width="700" style="object-fit: contain;" />
+
+### 🎉 Other Features
+
+- **3D Face Landmark Detection**: Tracks 478 facial landmarks in 3D space
+- **Pose Estimation**: Detects 33 pose landmarks for full body tracking
+- **Head Pose Estimation**: Calculates pitch, yaw, and roll angles of the head
+- **Real-time Visualization**: Visualizes landmarks and head pose in real-time
+- **JSON Export**: Saves detection results in a structured JSON format
+- **Modular Design**: Easy to extend with custom detection algorithms
+
+
+### 🛠️ Tech Stack
+
+- **Python 3.8+** - Modern Python features and type hints
+- **MediaPipe** - For accurate face and pose landmark detection
+- **OpenCV** - Video processing and visualization
+- **Rerun** - Interactive visualization for debugging and analysis
+- **Typer** - Command-line interface framework
+- **Rich** - Rich text and console output
+- **Black** - Code formatting
+- **isort** - Import sorting
+- **Flake8** - Linting
+- **Mypy** - Static type checking
+- **Pytest** - Robust test coverage for reliable code
+- **Docker** - Containerized environment for consistent execution
+- **Sphinx** - Professional and comprehensive documentation
+- **Github Actions** - Continuous integration and delivery
+
 ## 🚀 Installation
 
 ### Prerequisites
 - Python 3.8 or higher
-- MediaPipe (automatically installed via requirements.txt)
-- Rerun (automatically installed via requirements.txt)
 
 ### Setup
 ```bash
@@ -96,11 +152,6 @@ Docker provides a consistent environment that works across all platforms, ensuri
 - The container includes all necessary system dependencies for MediaPipe and OpenCV
 - Use `--rm` flag to automatically clean up the container after it exits
 
-### Expected Output
-- Processed video file with visualizations (`output_video.mp4`)
-- Interactive visualization using rerun.io (when `--visualize` flag is used)
-- Console output showing processing statistics
-- JSON files with detailed nod detection data (see [Output Data Structure](#output-data-structure) below)
 
 ## 📊 Output Data Structure
 
@@ -123,31 +174,31 @@ Each `frame_XXXXXX.json` file contains the following structure:
 {
   "frame_number": 0,                    // Frame number (0-based index)
   "timestamp": 0.0,                     // Timestamp in seconds
-  "detections": [],                      // List of detections (if any)
+  "detections": [],                     // List of detections (if any)
   "head_pose": {                        // Head pose information
     "pitch": -51.42551400204901,        // Head pitch angle in degrees
     "yaw": 0.0,                         // Head yaw angle in degrees
     "roll": 0.0                         // Head roll angle in degrees
   },
-  "pose_landmarks": {                  // 3D pose landmarks
+  "pose_landmarks": {                   // 3D pose landmarks
     "0": {                              // Landmark ID (0-32 for body pose)
-      "x": 0.4661392569541931,         // X coordinate (normalized)
-      "y": 0.28261396288871765,        // Y coordinate (normalized)
-      "z": -0.39765465259552,          // Z coordinate (normalized)
+      "x": 0.4661392569541931,          // X coordinate (normalized)
+      "y": 0.28261396288871765,         // Y coordinate (normalized)
+      "z": -0.39765465259552,           // Z coordinate (normalized)
       "visibility": 0.990135908126831   // Visibility score [0, 1]
     },
     // ... more landmarks (0-32 for body pose)
   },
-  "face_landmarks": {                  // 3D face landmarks (if detected)
-    "0": {                             // Landmark ID (0-467 for face)
-      "x": 0.5,                        // X coordinate (normalized)
-      "y": 0.3,                        // Y coordinate (normalized)
-      "z": -0.4,                       // Z coordinate (normalized)
-      "visibility": 0.99               // Visibility score [0, 1]
+  "face_landmarks": {                   // 3D face landmarks (if detected)
+    "0": {                              // Landmark ID (0-467 for face)
+      "x": 0.5,                         // X coordinate (normalized)
+      "y": 0.3,                         // Y coordinate (normalized)
+      "z": -0.4,                        // Z coordinate (normalized)
+      "visibility": 0.99                // Visibility score [0, 1]
     },
     // ... more face landmarks (0-467)
   },
-  "nod_detected": false                // Whether a nod was detected in this frame
+  "nod_detected": false                 // Whether a nod was detected in this frame
 }
 ```
 
@@ -203,14 +254,12 @@ nod_detector/
 └── pyproject.toml      # Build system configuration
 ```
 
-## 🔍 Features
+## 🎥 Using the Rerun Viewer
 
-- **3D Face Landmark Detection**: Tracks 478 facial landmarks in 3D space
-- **Pose Estimation**: Detects 33 pose landmarks for full body tracking
-- **Head Pose Estimation**: Calculates pitch, yaw, and roll angles of the head
-- **Real-time Visualization**: Visualizes landmarks and head pose in real-time
-- **JSON Export**: Saves detection results in a structured JSON format
-- **Modular Design**: Easy to extend with custom detection algorithms
+1. The Rerun viewer will open automatically when you run the detector with the `--visualize` flag.
+2. Use the timeline at the bottom to scrub through frames.
+3. Toggle different visualizations using the right sidebar.
+4. The 3D view shows the estimated fully body and head pose of the subject, projected onto the input video stream.
 
 ## 🔍 Assumptions and Limitations
 - The input video should contain clear frontal or near-frontal views of faces
@@ -221,20 +270,6 @@ nod_detector/
 - Frame rates between 24-60 FPS are recommended for best results
 - Multiple faces in the frame may affect detection accuracy
 - Performance may vary with different lighting conditions and video qualities
-
-
-## 🎥 Visualization with Rerun
-
-The nod detector supports interactive visualization using [Rerun](https://rerun.io/), a visualization tool for computer vision and robotics. When enabled with the `--visualize` flag, the pipeline will launch a Rerun viewer that shows:
-
-- The input video stream
-
-### Using the Rerun Viewer
-
-1. The Rerun viewer will open automatically when you run the detector with the `--visualize` flag.
-2. Use the timeline at the bottom to scrub through frames.
-3. Toggle different visualizations using the right sidebar.
-4. The 3D view shows the estimated fully body and head pose of the subject, projected onto the input video stream.
 
 
 ## 📚 Documentation
@@ -365,3 +400,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🙏 Acknowledgments
 - Built with [MediaPipe](https://mediapipe.dev/)
 - Inspired by research in computer vision and behavior analysis
+- [Prexels.com](https://prexels.com/) for the [video](https://www.pexels.com/video/a-man-nodding-his-head-and-doing-facial-expressions-10515012/) used for testing and visualization
