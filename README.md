@@ -225,7 +225,7 @@ nod_detector/
 - Performance may vary with different lighting conditions and video qualities
 
 
-### 🎥 Visualization with Rerun
+## 🎥 Visualization with Rerun
 
 The nod detector supports interactive visualization using [Rerun](https://rerun.io/), a visualization tool for computer vision and robotics. When enabled with the `--visualize` flag, the pipeline will launch a Rerun viewer that shows:
 
@@ -236,13 +236,48 @@ The nod detector supports interactive visualization using [Rerun](https://rerun.
 1. The Rerun viewer will open automatically when you run the detector with the `--visualize` flag.
 2. Use the timeline at the bottom to scrub through frames.
 3. Toggle different visualizations using the right sidebar.
-4. The 3D view shows the estimated head pose in 3D space.
+4. The 3D view shows the estimated fully body and head pose of the subject, projected onto the input video stream.
+
+
+## 📚 Documentation
+
+Comprehensive documentation is available on [GitHub Pages](https://kkaytekin.github.io/nod_detector/). The documentation includes:
+
+- Installation and setup instructions
+- Usage examples and API reference
+- Development guidelines
+- Troubleshooting
+- and more!
+
+### Building Documentation Locally
+
+To build the documentation locally:
+
+```bash
+# Install documentation dependencies
+pip install -e ".[docs]"
+
+# Build the documentation
+cd docs
+make html
+
+# Open the built documentation in your browser
+start _build/html/index.html  # On Windows
+# On macOS: open _build/html/index.html
+# On Linux: xdg-open _build/html/index.html
+```
 
 
 ## 🤝 Contributing
 
 ### For Users
 Found a bug or have a feature request? Please open an issue on our [GitHub Issues](https://github.com/kkaytekin/nod_detector/issues) page.
+
+### Open Tasks
+- [ ] Improve nod detection algorithm, also consider yaw and roll angles for better nod detection
+- [ ] Implement light-weight version with downscaled video resolution
+- [ ] Review documentation
+- [ ] Clear code base of unused code and unit tests
 
 ### For Developers
 1. Fork the repository
@@ -318,51 +353,6 @@ pytest --cov=src/nod_detector --cov-report=term-missing
 - `tests/unit/`: Unit tests for individual components
 - `tests/integration/`: Integration tests that verify the system as a whole
 - `tests/data/`: Test data and fixtures
-
-## 📚 Documentation
-
-Comprehensive documentation is available on [GitHub Pages](https://kkaytekin.github.io/nod_detector/). The documentation includes:
-
-- Installation and setup instructions
-- Usage examples and API reference
-- Development guidelines
-- Troubleshooting
-
-### Building Documentation Locally
-
-To build the documentation locally:
-
-```bash
-# Install documentation dependencies
-pip install -e ".[docs]"
-
-# Build the documentation
-cd docs
-make html
-
-# Open the built documentation in your browser
-start _build/html/index.html  # On Windows
-# On macOS: open _build/html/index.html
-# On Linux: xdg-open _build/html/index.html
-```
-
-### 🎥 Visualization with Rerun
-
-The nod detector supports interactive visualization using [Rerun](https://rerun.io/), a visualization tool for computer vision and robotics. When enabled with the `--visualize` flag, the pipeline will launch a Rerun viewer that shows:
-
-- The input video stream
-### TODO: Future
-- Detected face landmarks
-- Head pose estimation (pitch, yaw, roll)
-- Nod detection status
-- Bounding boxes around detected faces
-
-### Using the Rerun Viewer
-
-1. The Rerun viewer will open automatically when you run the detector with the `--visualize` flag.
-2. Use the timeline at the bottom to scrub through frames.
-3. Toggle different visualizations using the right sidebar.
-4. The 3D view shows the estimated head pose in 3D space.
 
 ### Configuration Files
 - `.flake8`: Flake8 configuration (excludes, line length, etc.)
