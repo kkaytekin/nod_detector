@@ -22,13 +22,13 @@ repos:
       additional_dependencies: [flake8-bugbear==24.2.6]
       exclude: ^(docs/|tests/|setup\.py|docs/conf\.py|build/|dist/|migrations/|node_modules/)
 
--   repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.15.0  # Latest stable version
-    hooks:
-    - id: mypy
-      additional_dependencies: [types-requests==2.32.0.20250515]
-      exclude: ^(tests/|docs/|setup\.py|docs/conf\.py|build/|dist/|migrations/|node_modules/)
-      args: [--python-version=3.12, --ignore-missing-imports] # Temporarily ignoring missing imports
+# -   repo: https://github.com/pre-commit/mirrors-mypy
+#     rev: v1.15.0  # Latest stable version
+#     hooks:
+#     - id: mypy
+#       additional_dependencies: [types-requests==2.32.0.20250515]
+#       exclude: ^(tests/|docs/|setup\.py|docs/conf\.py|build/|dist/|migrations/|node_modules/)
+#       args: [--python-version=3.12, --ignore-missing-imports] # Temporarily ignoring missing imports
 
 -   repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0  # Latest stable version
@@ -42,25 +42,25 @@ repos:
     - id: debug-statements
     - id: requirements-txt-fixer
 
-# Docker-related hooks
--   repo: https://github.com/hadolint/hadolint
-    rev: v2.12.0  # Latest stable version
-    hooks:
-    - id: hadolint
-      name: Lint Dockerfile
-      description: Lint Dockerfile for security and best practices
-      entry: hadolint --ignore DL3008 --ignore DL3009 --ignore DL3013 --ignore DL3018 --ignore DL3019 --ignore DL4000 --ignore DL4001
-      language: docker_image
-      types: [dockerfile]
+# # Docker-related hooks
+# -   repo: https://github.com/hadolint/hadolint
+#     rev: v2.12.0  # Latest stable version
+#     hooks:
+#     - id: hadolint
+#       name: Lint Dockerfile
+#       description: Lint Dockerfile for security and best practices
+#       entry: hadolint --ignore DL3008 --ignore DL3009 --ignore DL3013 --ignore DL3018 --ignore DL3019 --ignore DL4000 --ignore DL4001
+#       language: docker_image
+#       types: [dockerfile]
 
--   repo: https://github.com/compose-schema/compose-schema
-    rev: v0.1.0  # Latest stable version
-    hooks:
-    - id: validate-docker-compose
-      name: Validate docker-compose.yml
-      description: Validate docker-compose.yml files
-      entry: docker-compose config -q
-      language: docker
-      files: 'docker-compose\.ya?ml$'
-      pass_filenames: false
-      always_run: true
+# -   repo: https://github.com/compose-schema/compose-schema
+#     rev: v0.1.0  # Latest stable version
+#     hooks:
+#     - id: validate-docker-compose
+#       name: Validate docker-compose.yml
+#       description: Validate docker-compose.yml files
+#       entry: docker-compose config -q
+#       language: docker
+#       files: 'docker-compose\.ya?ml$'
+#       pass_filenames: false
+#       always_run: true

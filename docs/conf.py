@@ -42,10 +42,7 @@ language = "en"
 html_theme = "sphinx_rtd_theme"
 
 # Theme options
-html_theme_options = {
-    "collapse_navigation": False,
-    "titles_only": True
-}
+html_theme_options = {"collapse_navigation": False, "titles_only": True}
 
 # Paths that contain custom static files
 html_static_path = ["_static"]
@@ -53,9 +50,9 @@ html_static_path = ["_static"]
 # -- Extension configuration -------------------------------------------------
 # Autodoc settings
 autodoc_default_options = {
-    'members': True,
-    'member-order': 'bysource',
-    'show-inheritance': True,
+    "members": True,
+    "member-order": "bysource",
+    "show-inheritance": True,
 }
 
 # Napoleon settings
