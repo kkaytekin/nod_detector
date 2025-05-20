@@ -102,6 +102,7 @@
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">..mediapipe_components</span><span class="w"> </span><span class="kn">import</span> <span class="n">MediaPipeDetector</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">..nod_detection</span><span class="w"> </span><span class="kn">import</span> <span class="n">NodDetector</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..output_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">save_processed_video</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">.base_pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">BasePipeline</span>
 
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
@@ -187,7 +188,9 @@
         <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">output_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;output_dir&quot;</span><span class="p">,</span> <span class="s2">&quot;output&quot;</span><span class="p">))</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">output_dir</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">nod_count</span> <span class="o">=</span> <span class="mi">0</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">nod_count</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">last_nod_frame</span> <span class="o">=</span> <span class="o">-</span><span class="mi">10</span>  <span class="c1"># Track the last frame where a nod was detected</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">nod_display_frames</span> <span class="o">=</span> <span class="mi">5</span>  <span class="c1"># Number of frames to show nod detection</span></div>
 
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_visualize_frame</span><span class="p">(</span>
@@ -476,6 +479,9 @@
             <span class="s2">&quot;detections&quot;</span><span class="p">:</span> <span class="p">[],</span>
         <span class="p">}</span>
 
+        <span class="c1"># List to store processed frames for video output</span>
+        <span class="n">processed_frames</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">uint8</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
+
         <span class="c1"># Set max frames based on debug mode</span>
         <span class="n">max_frames</span> <span class="o">=</span> <span class="mi">10</span> <span class="k">if</span> <span class="n">debug</span> <span class="k">else</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">debug</span><span class="p">:</span>
@@ -507,30 +513,93 @@
                         <span class="c1"># Update frame result with nod detection info</span>
                         <span class="n">frame_result</span><span class="p">[</span><span class="s2">&quot;nod_detected&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">nod_detected</span>
                         <span class="n">frame_result</span><span class="p">[</span><span class="s2">&quot;nod_direction&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">nod_direction</span> <span class="k">if</span> <span class="n">nod_detected</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span>
+                        <span class="n">frame_result</span><span class="p">[</span><span class="s2">&quot;pitch&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pitch</span>  <span class="c1"># Ensure pitch is in frame_result</span>
 
                         <span class="c1"># Update nod count</span>
                         <span class="k">if</span> <span class="n">nod_detected</span><span class="p">:</span>
                             <span class="bp">self</span><span class="o">.</span><span class="n">nod_count</span> <span class="o">+=</span> <span class="mi">1</span>
                             <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Nod detected at frame </span><span class="si">{</span><span class="n">frame_count</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">nod_direction</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
-                    <span class="c1"># Create typed frame result</span>
-                    <span class="n">frame_result_typed</span> <span class="o">=</span> <span class="n">FrameResult</span><span class="p">(</span>
-                        <span class="n">frame_number</span><span class="o">=</span><span class="n">frame_count</span><span class="p">,</span>
-                        <span class="n">timestamp</span><span class="o">=</span><span class="n">frame_result</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;timestamp&quot;</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span>
-                        <span class="n">detections</span><span class="o">=</span><span class="n">frame_result</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;detections&quot;</span><span class="p">,</span> <span class="p">[]),</span>
-                        <span class="n">head_pose</span><span class="o">=</span><span class="n">frame_result</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;head_pose&quot;</span><span class="p">),</span>
-                        <span class="n">pose_landmarks</span><span class="o">=</span><span class="n">frame_result</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;pose_landmarks&quot;</span><span class="p">),</span>
-                        <span class="n">face_landmarks</span><span class="o">=</span><span class="n">frame_result</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;face_landmarks&quot;</span><span class="p">),</span>
-                        <span class="n">nod_detected</span><span class="o">=</span><span class="n">frame_result</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;nod_detected&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">),</span>
+                        <span class="c1"># Update last nod frame if nod was detected</span>
+                        <span class="k">if</span> <span class="n">nod_detected</span><span class="p">:</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">last_nod_frame</span> <span class="o">=</span> <span class="n">frame_count</span>
+
+                    <span class="c1"># Create a copy of the frame for visualization</span>
+                    <span class="n">vis_frame</span> <span class="o">=</span> <span class="n">frame</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+                    <span class="c1"># Convert processed frame to BGR if needed</span>
+                    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">processed_frame</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>  <span class="c1"># Grayscale</span>
+                        <span class="n">vis_frame</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">cvtColor</span><span class="p">(</span><span class="n">processed_frame</span><span class="p">,</span> <span class="n">cv2</span><span class="o">.</span><span class="n">COLOR_GRAY2BGR</span><span class="p">)</span>
+                    <span class="k">elif</span> <span class="n">processed_frame</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">==</span> <span class="mi">4</span><span class="p">:</span>  <span class="c1"># RGBA</span>
+                        <span class="n">vis_frame</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">cvtColor</span><span class="p">(</span><span class="n">processed_frame</span><span class="p">,</span> <span class="n">cv2</span><span class="o">.</span><span class="n">COLOR_RGBA2BGR</span><span class="p">)</span>
+                    <span class="k">elif</span> <span class="n">processed_frame</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>  <span class="c1"># Single channel</span>
+                        <span class="n">vis_frame</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">cvtColor</span><span class="p">(</span><span class="n">processed_frame</span><span class="p">,</span> <span class="n">cv2</span><span class="o">.</span><span class="n">COLOR_GRAY2BGR</span><span class="p">)</span>
+                    <span class="k">else</span><span class="p">:</span>  <span class="c1"># Already BGR or other 3-channel format</span>
+                        <span class="n">vis_frame</span> <span class="o">=</span> <span class="n">processed_frame</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+                    <span class="c1"># Calculate text scale and thickness based on frame dimensions</span>
+                    <span class="n">frame_height</span> <span class="o">=</span> <span class="n">vis_frame</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                    <span class="n">text_scale</span> <span class="o">=</span> <span class="n">frame_height</span> <span class="o">/</span> <span class="mi">500</span>  <span class="c1"># Scale text size based on frame height</span>
+                    <span class="n">text_thickness</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">frame_height</span> <span class="o">/</span> <span class="mi">400</span><span class="p">))</span>  <span class="c1"># Scale thickness</span>
+
+                    <span class="c1"># Visualize the frame with landmarks and results</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_visualize_frame</span><span class="p">(</span><span class="n">vis_frame</span><span class="p">,</span> <span class="n">frame_count</span><span class="p">,</span> <span class="n">video_info</span><span class="p">,</span> <span class="n">frame_result</span><span class="p">)</span>
+
+                    <span class="c1"># Visualize with Rerun if enabled</span>
+                    <span class="k">if</span> <span class="n">visualize</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">_visualize</span><span class="p">(</span><span class="n">vis_frame</span><span class="p">,</span> <span class="n">frame_result</span><span class="p">)</span>
+
+                    <span class="c1"># Show nod detection indicator for several frames after detection</span>
+                    <span class="k">if</span> <span class="n">frame_count</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">last_nod_frame</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">nod_display_frames</span><span class="p">:</span>
+                        <span class="n">cv2</span><span class="o">.</span><span class="n">putText</span><span class="p">(</span>
+                            <span class="n">vis_frame</span><span class="p">,</span>
+                            <span class="sa">f</span><span class="s2">&quot;NOD DETECTED: </span><span class="si">{</span><span class="n">nod_direction</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+                            <span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">frame_height</span> <span class="o">*</span> <span class="mf">0.05</span><span class="p">),</span> <span class="nb">int</span><span class="p">(</span><span class="n">frame_height</span> <span class="o">*</span> <span class="mf">0.1</span><span class="p">)),</span>  <span class="c1"># Position relative to frame height</span>
+                            <span class="n">cv2</span><span class="o">.</span><span class="n">FONT_HERSHEY_SIMPLEX</span><span class="p">,</span>
+                            <span class="n">text_scale</span> <span class="o">*</span> <span class="mf">1.5</span><span class="p">,</span>  <span class="c1"># Larger text for nod detection</span>
+                            <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">255</span><span class="p">),</span>  <span class="c1"># Red color</span>
+                            <span class="n">text_thickness</span> <span class="o">*</span> <span class="mi">2</span><span class="p">,</span>  <span class="c1"># Thicker text</span>
+                            <span class="n">cv2</span><span class="o">.</span><span class="n">LINE_AA</span><span class="p">,</span>
+                        <span class="p">)</span>
+
+                    <span class="c1"># Add nod count (top left)</span>
+                    <span class="n">cv2</span><span class="o">.</span><span class="n">putText</span><span class="p">(</span>
+                        <span class="n">vis_frame</span><span class="p">,</span>
+                        <span class="sa">f</span><span class="s2">&quot;NOD COUNT: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">nod_count</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+                        <span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">frame_height</span> <span class="o">*</span> <span class="mf">0.03</span><span class="p">),</span> <span class="nb">int</span><span class="p">(</span><span class="n">frame_height</span> <span class="o">*</span> <span class="mf">0.05</span><span class="p">)),</span>  <span class="c1"># Top left</span>
+                        <span class="n">cv2</span><span class="o">.</span><span class="n">FONT_HERSHEY_SIMPLEX</span><span class="p">,</span>
+                        <span class="n">text_scale</span><span class="p">,</span>
+                        <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>  <span class="c1"># Green color</span>
+                        <span class="n">text_thickness</span><span class="p">,</span>
+                        <span class="n">cv2</span><span class="o">.</span><span class="n">LINE_AA</span><span class="p">,</span>
                     <span class="p">)</span>
 
-                    <span class="c1"># Add to results and save frame</span>
-                    <span class="n">results</span><span class="p">[</span><span class="s2">&quot;frame_results&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">frame_result_typed</span><span class="p">)</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">_save_frame_results</span><span class="p">(</span><span class="n">frame_result_typed</span><span class="p">,</span> <span class="n">frame_count</span><span class="p">)</span>
-                    <span class="c1"># Visualize the current frame with results if enabled</span>
-                    <span class="k">if</span> <span class="n">visualize</span><span class="p">:</span>
-                        <span class="bp">self</span><span class="o">.</span><span class="n">_visualize</span><span class="p">(</span><span class="n">processed_frame</span><span class="p">,</span> <span class="n">frame_result_typed</span><span class="p">)</span>
+                    <span class="c1"># Add frame number (top right)</span>
+                    <span class="n">frame_text</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;FRAME: </span><span class="si">{</span><span class="n">frame_count</span><span class="si">}</span><span class="s2">&quot;</span>
+                    <span class="n">text_size</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">getTextSize</span><span class="p">(</span><span class="n">frame_text</span><span class="p">,</span> <span class="n">cv2</span><span class="o">.</span><span class="n">FONT_HERSHEY_SIMPLEX</span><span class="p">,</span> <span class="n">text_scale</span> <span class="o">*</span> <span class="mf">0.8</span><span class="p">,</span> <span class="n">text_thickness</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+                    <span class="n">text_x</span> <span class="o">=</span> <span class="n">vis_frame</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">text_size</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="nb">int</span><span class="p">(</span><span class="n">frame_height</span> <span class="o">*</span> <span class="mf">0.03</span><span class="p">)</span>  <span class="c1"># Right align</span>
+                    <span class="n">cv2</span><span class="o">.</span><span class="n">putText</span><span class="p">(</span>
+                        <span class="n">vis_frame</span><span class="p">,</span>
+                        <span class="n">frame_text</span><span class="p">,</span>
+                        <span class="p">(</span><span class="n">text_x</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">frame_height</span> <span class="o">*</span> <span class="mf">0.05</span><span class="p">)),</span>  <span class="c1"># Top right</span>
+                        <span class="n">cv2</span><span class="o">.</span><span class="n">FONT_HERSHEY_SIMPLEX</span><span class="p">,</span>
+                        <span class="n">text_scale</span> <span class="o">*</span> <span class="mf">0.8</span><span class="p">,</span>
+                        <span class="p">(</span><span class="mi">255</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">255</span><span class="p">),</span>  <span class="c1"># White color</span>
+                        <span class="n">text_thickness</span><span class="p">,</span>
+                        <span class="n">cv2</span><span class="o">.</span><span class="n">LINE_AA</span><span class="p">,</span>
+                    <span class="p">)</span>
+
+                    <span class="c1"># Ensure frame has correct dimensions</span>
+                    <span class="k">if</span> <span class="p">(</span><span class="n">vis_frame</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">vis_frame</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">!=</span> <span class="p">(</span><span class="n">frame_width</span><span class="p">,</span> <span class="n">frame_height</span><span class="p">):</span>
+                        <span class="n">vis_frame</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">resize</span><span class="p">(</span><span class="n">vis_frame</span><span class="p">,</span> <span class="p">(</span><span class="n">frame_width</span><span class="p">,</span> <span class="n">frame_height</span><span class="p">))</span>
+
+                    <span class="c1"># Add the frame to the list for video output</span>
+                    <span class="n">processed_frames</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">vis_frame</span><span class="p">)</span>
                     <span class="n">frame_count</span> <span class="o">+=</span> <span class="mi">1</span>
+
+                    <span class="c1"># Log progress every 100 frames</span>
+                    <span class="k">if</span> <span class="n">frame_count</span> <span class="o">%</span> <span class="mi">100</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Collected </span><span class="si">{</span><span class="n">frame_count</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">total_frames</span><span class="si">}</span><span class="s2"> frames for output video&quot;</span><span class="p">)</span>
 
                     <span class="c1"># Log progress every 100 frames</span>
                     <span class="k">if</span> <span class="n">frame_count</span> <span class="o">%</span> <span class="mi">100</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
@@ -547,31 +616,61 @@
             <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error processing video: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
             <span class="k">raise</span>
         <span class="k">finally</span><span class="p">:</span>
-            <span class="c1"># Release resources</span>
-            <span class="k">if</span> <span class="s2">&quot;cap&quot;</span> <span class="ow">in</span> <span class="nb">locals</span><span class="p">()</span> <span class="ow">and</span> <span class="n">cap</span><span class="o">.</span><span class="n">isOpened</span><span class="p">():</span>
-                <span class="n">cap</span><span class="o">.</span><span class="n">release</span><span class="p">()</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="c1"># Release resources</span>
+                <span class="k">if</span> <span class="s2">&quot;cap&quot;</span> <span class="ow">in</span> <span class="nb">locals</span><span class="p">()</span> <span class="ow">and</span> <span class="n">cap</span><span class="o">.</span><span class="n">isOpened</span><span class="p">():</span>
+                    <span class="n">cap</span><span class="o">.</span><span class="n">release</span><span class="p">()</span>
 
-            <span class="k">if</span> <span class="n">visualize</span><span class="p">:</span>
-                <span class="k">try</span><span class="p">:</span>
-                    <span class="c1"># Add a small delay to ensure all frames are processed</span>
-                    <span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+                <span class="c1"># Save the processed video</span>
+                <span class="k">if</span> <span class="s2">&quot;processed_frames&quot;</span> <span class="ow">in</span> <span class="nb">locals</span><span class="p">()</span> <span class="ow">and</span> <span class="n">processed_frames</span><span class="p">:</span>
+                    <span class="n">output_video_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">Path</span><span class="p">(</span><span class="n">video_path</span><span class="p">)</span><span class="o">.</span><span class="n">stem</span><span class="si">}</span><span class="s2">_processed.mp4&quot;</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Saving processed video to: </span><span class="si">{</span><span class="n">output_video_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Number of frames to save: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">processed_frames</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Frame size: </span><span class="si">{</span><span class="n">frame_width</span><span class="si">}</span><span class="s2">x</span><span class="si">{</span><span class="n">frame_height</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;FPS: </span><span class="si">{</span><span class="n">fps</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
-                    <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+                    <span class="c1"># Ensure output directory exists</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">output_dir</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
-                    <span class="c1"># Try to close Rerun if possible</span>
+                    <span class="c1"># Save the video</span>
                     <span class="k">try</span><span class="p">:</span>
-                        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">rr</span><span class="p">,</span> <span class="s2">&quot;disconnect&quot;</span><span class="p">):</span>
-                            <span class="n">rr</span><span class="o">.</span><span class="n">disconnect</span><span class="p">()</span>
-                        <span class="k">elif</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">rr</span><span class="p">,</span> <span class="s2">&quot;shutdown&quot;</span><span class="p">):</span>
-                            <span class="n">rr</span><span class="o">.</span><span class="n">shutdown</span><span class="p">()</span>
-                    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-                        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Could not properly close Rerun: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                        <span class="n">save_processed_video</span><span class="p">(</span>
+                            <span class="n">frames</span><span class="o">=</span><span class="n">processed_frames</span><span class="p">,</span> <span class="n">output_path</span><span class="o">=</span><span class="n">output_video_path</span><span class="p">,</span> <span class="n">fps</span><span class="o">=</span><span class="n">fps</span><span class="p">,</span> <span class="n">frame_size</span><span class="o">=</span><span class="p">(</span><span class="n">frame_width</span><span class="p">,</span> <span class="n">frame_height</span><span class="p">)</span>
+                        <span class="p">)</span>
+                        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Successfully saved processed video to: </span><span class="si">{</span><span class="n">output_video_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
-                <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-                    <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error during cleanup: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-                <span class="k">finally</span><span class="p">:</span>
-                    <span class="c1"># Always try to clean up OpenCV windows</span>
-                    <span class="n">cv2</span><span class="o">.</span><span class="n">destroyAllWindows</span><span class="p">()</span>
+                        <span class="c1"># Verify the output file was created</span>
+                        <span class="k">if</span> <span class="n">output_video_path</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+                            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Output video size: </span><span class="si">{</span><span class="n">output_video_path</span><span class="o">.</span><span class="n">stat</span><span class="p">()</span><span class="o">.</span><span class="n">st_size</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="p">(</span><span class="mi">1024</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">1024</span><span class="p">)</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> MB&quot;</span><span class="p">)</span>
+                        <span class="k">else</span><span class="p">:</span>
+                            <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Output video file was not created&quot;</span><span class="p">)</span>
+
+                    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                        <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error saving video: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+                <span class="k">if</span> <span class="n">visualize</span><span class="p">:</span>
+                    <span class="k">try</span><span class="p">:</span>
+                        <span class="c1"># Add a small delay to ensure all frames are processed</span>
+                        <span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+
+                        <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+
+                        <span class="c1"># Try to close Rerun if possible</span>
+                        <span class="k">try</span><span class="p">:</span>
+                            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">rr</span><span class="p">,</span> <span class="s2">&quot;disconnect&quot;</span><span class="p">):</span>
+                                <span class="n">rr</span><span class="o">.</span><span class="n">disconnect</span><span class="p">()</span>
+                            <span class="k">elif</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">rr</span><span class="p">,</span> <span class="s2">&quot;shutdown&quot;</span><span class="p">):</span>
+                                <span class="n">rr</span><span class="o">.</span><span class="n">shutdown</span><span class="p">()</span>
+                        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Could not properly close Rerun: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+                    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error during cleanup: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                    <span class="k">finally</span><span class="p">:</span>
+                        <span class="c1"># Always try to clean up OpenCV windows</span>
+                        <span class="n">cv2</span><span class="o">.</span><span class="n">destroyAllWindows</span><span class="p">()</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error during final cleanup: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
         <span class="c1"># Convert to ProcessingResults type to satisfy the return type</span>
         <span class="k">return</span> <span class="n">ProcessingResults</span><span class="p">(</span><span class="n">results</span><span class="p">)</span>
